@@ -9,4 +9,4 @@ If anyone knows what they're doing please reach out to Vin or Steven in the sens
 
 we might be cooked.
 
-![alt text](https://github.com/Gaucho-Racing/TCM-Jelqing/image.png?raw=true)
+![alt text](https://github.com/Gaucho-Racing/TCM-Jelqing/blob/main/image.png?raw=true)
