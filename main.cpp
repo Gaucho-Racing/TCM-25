@@ -4,19 +4,26 @@
 #include <chrono>
 #include <thread>
 #include <fcntl.h>
+#include <string>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <linux/spi/spidev.h>
 #include <cstring>
 
 // Define GPIO pin numbers for CS and INT
-const int CS_PIN = <CS_PIN_NUMBER>;
-const int INT_PIN = <INT_PIN_NUMBER>;
-#define SPI_BUS 0       // Adjust to your SPI bus (usually 0 on Jetson Nano)
-#define SPI_DEVICE 0    // Adjust to your device (usually 0 for spidev0.0)
-#define SPI_SPEED 1000000 // 1 MHz, adjust based on CAN FD controller specs
+const int CS_PIN = <what the fuck is the pin number>;
+const int INT_PIN = <which pins are we connecting to?>;
+#define SPI_BUS 0     
+#define SPI_DEVICE 0   
+#define SPI_SPEED 20000000 // should be 20 Mhz
 
 int spi_fd;
+
+// map of CAN IDs to file names
+std::unordered_map<std::string, std::string> sensorFiles = {
+    {"0x100", "pressure_sensor.log"} //example
+    //can id and file name
+};
 
 void initGPIO() {
     GPIO::setmode(GPIO::BCM);
@@ -58,8 +65,8 @@ bool initSPI() {
 }
 
 bool readCANFDData(std::string &data) {
-    const int frame_size = 16; // Adjust frame size based on the CAN FD controller's data frame size
-    uint8_t tx[frame_size] = {0}; // Transmission buffer (might be filled with read command bytes)
+    const int frame_size = 16; // Adjust frame size based on frame size
+    uint8_t tx[frame_size] = {0}; // Transmission buffer
     uint8_t rx[frame_size] = {0}; // Reception buffer
 
     // SPI transaction structure
@@ -98,9 +105,22 @@ void sendData(const std::string &data) {
     return 0;
 }
 
+std::string sortSensorData(const std::string &data) {
+    // this would return the first 4 characters of the can message as the can id
+    std::string canID = data.substr(0, 5); // idfk what can id length is
+
+    if (sensorFiles.find(canID) != sensorFiles.end()) {
+        return sensorFiles[canID];
+    } else {
+        // trash dump idfk
+        return "misc_sensor_data.log";
+    }
+}
+
 void logData(const std::string &data) {
     std::ofstream logfile;
-    logfile.open("/path/to/save/folder/canfd_data.txt", std::ios::app);
+    //Implement CAN ID sorting here and save each metric to its own file
+    logfile.open(sortSensorData(data), std::ios::app);
     logfile << data << std::endl;
     logfile.close();
 }
@@ -116,7 +136,7 @@ int main() {
                 sendData(data);
             }
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(10)); // Adjust based on system latency
+        std::this_thread::sleep_for(std::chrono::milliseconds(10)); 
     }
 
     GPIO::cleanup();
