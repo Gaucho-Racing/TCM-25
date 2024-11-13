@@ -15,12 +15,13 @@ const int CS_PIN = <what the fuck is the pin number>; //connect to SPI_CS0
 const int INT_PIN = <which pins are we connecting to?>; //connect to PIN 32
 #define SPI_BUS 0     
 #define SPI_DEVICE 0   
-#define SPI_SPEED 20000000 // should be 20 Mhz
+#define SPI_SPEED 20000000 // MCP2518FD should be 20 Mhz
 
 int spi_fd;
 
 // map of CAN IDs to file names
 std::unordered_map<std::string, std::string> sensorFiles = {
+    //can id and file name
     {"0x100102", "ecu.log"},
     {"0x100103", "acu.log"},
     {"0x100105", "dash_panel.log"},
@@ -29,8 +30,6 @@ std::unordered_map<std::string, std::string> sensorFiles = {
     {"0x100108", "inverter2_panel.log"},
     {"0x10010C", "sam1_panel.log"}
     {"0x10010D", "sam2_panel.log"}
-
-    //can id and file name
 };
 
 void initGPIO() {
@@ -87,12 +86,36 @@ bool receive(unsigned long id, byte buf[]){
     }
 '''
 bool readCANFDData(std::string &data) {
+    const int id_read_size = 3;  // how many bytes for CAN ID?? prayge 24 bits
+    uint8_t id_buf[id_read_size] = {0};
+    
+    // Temp for CANID
+    struct spi_ioc_transfer spi_id = {};
+    spi_id.tx_buf = reinterpret_cast<unsigned long>(id_buf);
+    spi_id.rx_buf = reinterpret_cast<unsigned long>(id_buf);
+    spi_id.len = id_read_size;
+    spi_id.speed_hz = SPI_SPEED;
+    spi_id.bits_per_word = 8;
+    spi_id.cs_change = 0;
 
-    const int frame_size = 64; // Adjust frame size as needed, 64 bytes is max size
-    uint8_t tx[frame_size] = {0}; // Transmission buffer
-    uint8_t rx[frame_size] = {0}; // Reception buffer
+    // Perform SPI to read CANID
+    if (ioctl(spi_fd, SPI_IOC_MESSAGE(1), &spi_id) < 0) {
+        std::cerr << "Failed to read CAN ID over SPI: " << strerror(errno) << std::endl;
+        return false;
+    }
 
-    // SPI transaction structure
+    // CANID to hex
+    char hex_id[9] = {0};
+    snprintf(hex_id, sizeof(hex_id), "%02X%02X%02X%02X", id_buf[0], id_buf[1], id_buf[2], id_buf[3]);
+    canID = hex_id;
+
+    // frame size for CANID
+    int frame_size = sensorFrameSizes.count(canID) ? sensorFrameSizes[canID] : 64;
+
+    //full frame
+    uint8_t tx[frame_size] = {0};
+    uint8_t rx[frame_size] = {0};
+
     struct spi_ioc_transfer spi = {};
     spi.tx_buf = reinterpret_cast<unsigned long>(tx);
     spi.rx_buf = reinterpret_cast<unsigned long>(rx);
@@ -101,13 +124,11 @@ bool readCANFDData(std::string &data) {
     spi.bits_per_word = 8;
     spi.cs_change = 0;
 
-    // Perform SPI transaction
     if (ioctl(spi_fd, SPI_IOC_MESSAGE(1), &spi) < 0) {
-        std::cerr << "Failed to communicate over SPI: " << strerror(errno) << std::endl;
+        std::cerr << "Failed to read CAN FD data over SPI: " << strerror(errno) << std::endl;
         return false;
     }
 
-    // Convert received bytes to a hex string
     data.clear();
     for (int i = 0; i < frame_size; ++i) {
         char hex[3];
