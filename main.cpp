@@ -11,8 +11,8 @@
 #include <cstring>
 
 // Define GPIO pin numbers for CS and INT
-const int CS_PIN = <what the fuck is the pin number>;
-const int INT_PIN = <which pins are we connecting to?>;
+const int CS_PIN = <what the fuck is the pin number>; //connect to SPI_CS0
+const int INT_PIN = <which pins are we connecting to?>; //connect to PIN 32
 #define SPI_BUS 0     
 #define SPI_DEVICE 0   
 #define SPI_SPEED 20000000 // should be 20 Mhz
@@ -87,13 +87,8 @@ bool receive(unsigned long id, byte buf[]){
     }
 '''
 bool readCANFDData(std::string &data) {
-    
-    // checking data idfk
-    logfile.open("data_check_CANFD.log", std::ios::app);
-    logfile << "test: " << data << std::endl;
-    logfile.close();
 
-    const int frame_size = 64; // Adjust frame size as needed
+    const int frame_size = 64; // Adjust frame size as needed, 64 bytes is max size
     uint8_t tx[frame_size] = {0}; // Transmission buffer
     uint8_t rx[frame_size] = {0}; // Reception buffer
 
