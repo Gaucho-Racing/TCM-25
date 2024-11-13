@@ -17,8 +17,8 @@ we might be cooked.
 
 # Acknowledgements
 ![alt text](https://github.com/Gaucho-Racing/TCM-Jelqing/blob/main/image.png?raw=true)
+![alt text](https://github.com/Gaucho-Racing/TCM-Jelqing/blob/main/IMG_1329.jpeg?raw=true)
 
 
 
-Daddy
 

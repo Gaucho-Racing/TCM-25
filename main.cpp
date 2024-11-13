@@ -9,7 +9,6 @@
 #include <unistd.h>
 #include <linux/spi/spidev.h>
 #include <cstring>
-#include <Nodes.h>
 
 // Define GPIO pin numbers for CS and INT
 const int CS_PIN = <what the fuck is the pin number>;
@@ -73,7 +72,27 @@ bool initSPI() {
     return true;
 }
 
+// Receive function
+'''
+bool receive(unsigned long id, byte buf[]){
+        if(id >= canid && id <= canid){
+            int row = id-0xF0;
+            receiveTime = millis();
+            for(int i = 0; i < buffer_size; i++) data[row][i] = buf[i];
+        }
+        else{
+            return 0;
+        }
+        return 1;
+    }
+'''
 bool readCANFDData(std::string &data) {
+    
+    // checking data idfk
+    logfile.open("data_check_CANFD.log", std::ios::app);
+    logfile << "test: " << data << std::endl;
+    logfile.close();
+
     const int frame_size = 64; // Adjust frame size as needed
     uint8_t tx[frame_size] = {0}; // Transmission buffer
     uint8_t rx[frame_size] = {0}; // Reception buffer
@@ -111,7 +130,7 @@ void closeSPI() {
 }
 
 void sendData(const std::string &data) {
-    return 0;
+    //shift left 8 bits and send data
 }
 
 std::string sortSensorData(const std::string &data) {
@@ -129,16 +148,20 @@ std::string sortSensorData(const std::string &data) {
 void logData(const std::string &data) {
     std::ofstream logfile;
     //Implement CAN ID sorting here and save each metric to its own file
-    logfile.open(sortSensorData(data), std::ios::app);
+    logfile.open("test_CANFD.log", std::ios::app);
+    //logfile.open(sortSensorData(data), std::ios::app);
 
-    if (decodeFunctions.find(canID) != decodeFunctions.end()) {
-        // data decode
-        std::string decodedData = decodeFunctions[canID](data);
-        logfile << decodedData << std::endl;
-    } else {
-        // log raw data if error
-        logfile << "Raw: " << data << std::endl;
-    }
+    logfile << "Raw: " << data << std::endl;
+
+    // For decoding refer to the spreadsheet https://docs.google.com/spreadsheets/d/1XfJhhAQoDnuSuwluNitPsDWtuQu-bP-VbEGPmSo5ujA/edit?gid=68138563#gid=68138563
+    // if (decodeFunctions.find(canID) != decodeFunctions.end()) {
+    //     // data decode
+    //     std::string decodedData = decodeFunctions[canID](data);
+    //     logfile << decodedData << std::endl;
+    // } else {
+    //     // log raw data if error
+    //     logfile << "Raw: " << data << std::endl;
+    // }
 
     logfile.close();
 }
@@ -151,7 +174,7 @@ int main() {
         if (GPIO::input(INT_PIN) == GPIO::HIGH) { // Check interrupt signal
             if (readCANFDData(data)) {
                 logData(data);
-                sendData(data);
+                //sendData(data);
             }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10)); 
