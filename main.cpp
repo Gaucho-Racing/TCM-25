@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <linux/spi/spidev.h>
 #include <cstring>
+#include <Nodes.h>
 
 // Define GPIO pin numbers for CS and INT
 const int CS_PIN = <what the fuck is the pin number>;
@@ -21,7 +22,15 @@ int spi_fd;
 
 // map of CAN IDs to file names
 std::unordered_map<std::string, std::string> sensorFiles = {
-    {"0x100", "pressure_sensor.log"} //example
+    {"0x100102", "ecu.log"},
+    {"0x100103", "acu.log"},
+    {"0x100105", "dash_panel.log"},
+    {"0x100106", "steering_wheel.log"},
+    {"0x100107", "inverter1.log"},
+    {"0x100108", "inverter2_panel.log"},
+    {"0x10010C", "sam1_panel.log"}
+    {"0x10010D", "sam2_panel.log"}
+
     //can id and file name
 };
 
@@ -65,7 +74,7 @@ bool initSPI() {
 }
 
 bool readCANFDData(std::string &data) {
-    const int frame_size = 16; // Adjust frame size based on frame size
+    const int frame_size = 64; // Adjust frame size as needed
     uint8_t tx[frame_size] = {0}; // Transmission buffer
     uint8_t rx[frame_size] = {0}; // Reception buffer
 
@@ -107,7 +116,7 @@ void sendData(const std::string &data) {
 
 std::string sortSensorData(const std::string &data) {
     // this would return the first 4 characters of the can message as the can id
-    std::string canID = data.substr(0, 5); // idfk what can id length is
+    std::string canID = data.substr(0, 9); // idfk what can id length is
 
     if (sensorFiles.find(canID) != sensorFiles.end()) {
         return sensorFiles[canID];
@@ -121,7 +130,16 @@ void logData(const std::string &data) {
     std::ofstream logfile;
     //Implement CAN ID sorting here and save each metric to its own file
     logfile.open(sortSensorData(data), std::ios::app);
-    logfile << data << std::endl;
+
+    if (decodeFunctions.find(canID) != decodeFunctions.end()) {
+        // data decode
+        std::string decodedData = decodeFunctions[canID](data);
+        logfile << decodedData << std::endl;
+    } else {
+        // log raw data if error
+        logfile << "Raw: " << data << std::endl;
+    }
+
     logfile.close();
 }
 
