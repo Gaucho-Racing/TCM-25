@@ -15,5 +15,10 @@ If anyone knows what they're doing please reach out to Vin or Steven in the sens
 
 we might be cooked.
 
+# Acknowledgements
 ![alt text](https://github.com/Gaucho-Racing/TCM-Jelqing/blob/main/image.png?raw=true)
+
+
+
+Daddy
 
