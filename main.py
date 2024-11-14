@@ -85,7 +85,16 @@ def check_mode(spi):
         print("Normal")
     else:
         print(f"Diff mode: {hex(mode)}")
-    
+
+def configure_fifo_as_receive():
+    # Example settings - replace with actual values from your datasheet
+    fifo_control_register = 0x5C  # Example address for FIFO control
+    fifo_receive_mode = 0x01      # Set FIFO to receive mode (check datasheet)
+
+    # Write to FIFO control register to enable receive mode
+    spi.xfer2([0x02, fifo_control_register, fifo_receive_mode])
+    print("FIFO set to receive mode")
+
 def get_CANID():
     frame_size = 4 # 3 bytes per CANID?
     tx = [0] * frame_size
@@ -113,7 +122,7 @@ def read_can_fd_data():
         rx = spi.xfer2(tx)
         GPIO.output(CS_PIN,GPIO.HIGH)
         print(f"readbytes {rx[2]}")
-        if rx[2]=="1":
+        if rx[2]==255:
             fifo_user_address_register = 0x64
             user_address_response = spi.xfer2([0x03, fifo_user_address_register, 0x00, 0x00])
             data_address = (user_address_response[2] << 8) | user_address_response[3]
@@ -165,6 +174,7 @@ def main():
     set_can_baud_rate(spi)
     set_normal_mode(spi)
     check_mode(spi)
+    configure_fifo_as_receive()
     try:
         while True:
             #if GPIO.input(INT_PIN) == GPIO.HIGH:
