@@ -103,6 +103,10 @@ def log_data(data):
     with open("test_CANFD.log", "a") as logfile:
         logfile.write(f"Raw: {data}\n")
 
+def log_actual_data(data):
+    with open("test_CANFD_actual_fucking_working.log", "a") as logfile:
+        logfile.write(f"Raw: {data}\n")
+
 def main():
     init_gpio()
     if not init_spi():
@@ -116,6 +120,14 @@ def main():
                 print(data)
                 if data:
                     print("Data actually being recorded lol")
+                    if data != data.beginswith("000000"):
+                        print("##################")
+                        print("##################")
+                        print("##################")
+                        print("##################")
+                        print("##################")
+                        print("Holy shit it works")
+                        log_actual_data(data)
                     log_data(data)
                     # someone add send data function
 
