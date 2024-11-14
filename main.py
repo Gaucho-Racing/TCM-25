@@ -86,8 +86,8 @@ def get_CANID():
         return None
 
 def read_can_fd_data():
-    frame_size = 8
-    #frame_size = sensor_frame_sizes[get_CANID()]
+    #frame_size = 8
+    frame_size = sensor_frame_sizes[get_CANID()]
     tx = [0] * frame_size
     try:
         rx = spi.xfer2(tx)
