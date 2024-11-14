@@ -64,12 +64,24 @@ def init_spi():
         return False
     
 def set_can_baud_rate(spi):
-    NBTCFG = [0x00,0x01,0x1C,0x03] # 500kbps baud
+    NBTCFG = [0x00,0x01,0x14,0x03] # 1mbps baud
     DBTCFG = [0x00,0x00,0x05,0x01] # 8Mbps
 
     spi.xfer2([0x04]+NBTCFG)
     spi.xfer2([0x10]+DBTCFG)
 
+def set_normal_mode(spi):
+    mode_command = [0x01,0x00]
+    spi.xfer2(mode_command)
+    print("Normal mode set")
+
+def check_mode(spi):
+    response = spi.xfer2([0x01,0x00])
+    mode = response[1]
+    if mode == 0x00:
+        print("Normal")
+    else:
+        print(f"Diff mode: {hex(mode)}")
     
 def get_CANID():
     frame_size = 4 # 3 bytes per CANID?
@@ -93,7 +105,7 @@ def read_can_fd_data():
     try:
         rx = spi.xfer2(tx)
         data = ''.join(f"{byte:02X}" for byte in rx)
-        print(f"Data being received {data}")
+        #print(f"Data being received {data}")
         if data[0:6] == "0x123":
             print("HOLY SHIT BRO IT RECEIVES SHIT")
             print("HOLY SHIT BRO IT RECEIVES SHIT")
@@ -128,14 +140,16 @@ def main():
     if not init_spi():
         return
     set_can_baud_rate(spi)
+    set_normal_mode(spi)
+    check_mode(spi)
     try:
         while True:
             #if GPIO.input(INT_PIN) == GPIO.HIGH:
-            print("CANFD data being read idfk")
+            #print("CANFD data being read idfk")
             data = read_can_fd_data()
-            print(data)
+            #print(data)
             if data:
-                print("Data actually being recorded lol")
+                #print("Data actually being recorded lol")
                 if data != "0000000000000000":
                     print("HOLY SHIT BRO IT RECEIVES SHIT")
                     print("HOLY SHIT BRO IT RECEIVES SHIT")
