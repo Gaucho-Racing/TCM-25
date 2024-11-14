@@ -61,6 +61,14 @@ def init_spi():
         print(f"Failed to open SPI device: {e}")
         return False
     
+def set_can_baud_rate(spi):
+    NBTCFG = [0x00,0x01,0x1C,0x03] # 500kbps baud
+    DBTCFG = [0x00,0x00,0x05,0x01] # 8Mbps
+
+    spi.xfer2([0x0C]+NBTCFG)
+    spi.xfer2([0x10]+DBTCFG)
+
+    
 def get_CANID():
     frame_size = 3 # 3 bytes per CANID?
     tx = [0] * frame_size
@@ -111,7 +119,7 @@ def main():
     init_gpio()
     if not init_spi():
         return
-
+    set_can_baud_rate(spi)
     try:
         while True:
             if GPIO.input(INT_PIN) == GPIO.HIGH:
@@ -120,13 +128,12 @@ def main():
                 print(data)
                 if data:
                     print("Data actually being recorded lol")
-                    if data != data.beginswith("000000"):
-                        print("##################")
-                        print("##################")
-                        print("##################")
-                        print("##################")
-                        print("##################")
-                        print("Holy shit it works")
+                    if data != "0000000000000000":
+                        print("HOLY SHIT BRO IT RECEIVES SHIT")
+                        print("HOLY SHIT BRO IT RECEIVES SHIT")
+                        print("HOLY SHIT BRO IT RECEIVES SHIT")
+                        print("HOLY SHIT BRO IT RECEIVES SHIT")
+                        print("HOLY SHIT BRO IT RECEIVES SHIT")
                         log_actual_data(data)
                     log_data(data)
                     # someone add send data function
