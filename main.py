@@ -32,6 +32,7 @@ sensor_files = {
 # Map of CAN IDs to frame size
 # ffs please update the spreadsheet https://docs.google.com/spreadsheets/d/1XfJhhAQoDnuSuwluNitPsDWtuQu-bP-VbEGPmSo5ujA/edit?gid=68138563#gid=68138563
 sensor_frame_sizes = {
+    "00000000": 8, # no data being received
     "0x169420": 8, # test canfd, 11/13 can 2.0 transmission test
     "0x100102": "dude",
     "0x100103": "acu.log",
