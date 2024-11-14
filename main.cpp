@@ -32,6 +32,8 @@ std::unordered_map<std::string, std::string> sensorFiles = {
     {"0x10010D", "sam2_panel.log"}
 };
 
+//TODO: need to write a map of can ids to can message length
+
 void initGPIO() {
     GPIO::setmode(GPIO::BCM);
     GPIO::setup(CS_PIN, GPIO::OUT);
@@ -146,7 +148,7 @@ void closeSPI() {
 }
 
 void sendData(const std::string &data) {
-    //shift left 8 bits and send data
+    //shift left 3 bytes and send data
 }
 
 std::string sortSensorData(const std::string &data) {
