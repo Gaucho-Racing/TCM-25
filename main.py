@@ -122,13 +122,20 @@ def read_can_fd_data():
         rx = spi.xfer2(tx)
         GPIO.output(CS_PIN,GPIO.HIGH)
         print(f"readbytes {rx[2]}")
+        status_response = spi.xfer2([0x03,0x60,0x00])
+        print(f"status: {status_response}")
         if rx[2]==255:
             fifo_user_address_register = 0x64
             user_address_response = spi.xfer2([0x03, fifo_user_address_register, 0x00, 0x00])
+            print(user_address_response)
             data_address = (user_address_response[2] << 8) | user_address_response[3]
-
+            print(data_address)
             # 3. Use the address to read the CAN message data (adjust the number of bytes as needed)
-            message_response = spi.xfer2([0x03, data_address, 0x00] + [0x00] * 8)
+            message_response = spi.xfer2([0x03, data_address, 0x00] + [0x00] * 64)
+            print("HOLY SHIT BRO IT RECEIVES SHIT")
+            print("HOLY SHIT BRO IT RECEIVES SHIT")
+            print("HOLY SHIT BRO IT RECEIVES SHIT")
+            print("HOLY SHIT BRO IT RECEIVES SHIT")
 
             # 4. Parse the CAN message data
             print("CAN message data:", message_response)
@@ -183,13 +190,13 @@ def main():
             #print(data)
             if data:
                 #print("Data actually being recorded lol")
-                if data != "0000000000000000":
-                    print("HOLY SHIT BRO IT RECEIVES SHIT")
-                    print("HOLY SHIT BRO IT RECEIVES SHIT")
-                    print("HOLY SHIT BRO IT RECEIVES SHIT")
-                    print("HOLY SHIT BRO IT RECEIVES SHIT")
-                    print("HOLY SHIT BRO IT RECEIVES SHIT")
-                    log_actual_data(data)
+                # if data != "0000000000000000":
+                #     print("HOLY SHIT BRO IT RECEIVES SHIT")
+                #     print("HOLY SHIT BRO IT RECEIVES SHIT")
+                #     print("HOLY SHIT BRO IT RECEIVES SHIT")
+                #     print("HOLY SHIT BRO IT RECEIVES SHIT")
+                #     print("HOLY SHIT BRO IT RECEIVES SHIT")
+                #     log_actual_data(data)
                 log_data(data)
                 # someone add send data function
 
