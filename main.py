@@ -114,7 +114,15 @@ def read_can_fd_data():
         GPIO.output(CS_PIN,GPIO.HIGH)
         print(f"readbytes {rx[2]}")
         if rx[2]=="1":
-            
+            fifo_user_address_register = 0x64
+            user_address_response = spi.xfer2([0x03, fifo_user_address_register, 0x00, 0x00])
+            data_address = (user_address_response[2] << 8) | user_address_response[3]
+
+            # 3. Use the address to read the CAN message data (adjust the number of bytes as needed)
+            message_response = spi.xfer2([0x03, data_address, 0x00] + [0x00] * 8)
+
+            # 4. Parse the CAN message data
+            print("CAN message data:", message_response)
 
 
         print(f"readbytes {spi.readbytes(8)}")
