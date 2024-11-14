@@ -77,8 +77,8 @@ def get_CANID():
         return None
 
 def read_can_fd_data():
-    
-    frame_size = sensor_frame_sizes[get_CANID()]
+    frame_size = 8
+    #frame_size = sensor_frame_sizes[get_CANID()]
     tx = [0] * frame_size
     try:
         rx = spi.xfer2(tx)
@@ -113,6 +113,7 @@ def main():
             if GPIO.input(INT_PIN) == GPIO.HIGH:
                 print("CANFD data being read idfk")
                 data = read_can_fd_data()
+                print(data)
                 if data:
                     print("Data actually being recorded lol")
                     log_data(data)
