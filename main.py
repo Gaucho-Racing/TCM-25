@@ -13,7 +13,7 @@ import logging
 CS_PIN = 24
 SCK_PIN = 23
 MOSI_PIN = 19
-MISO_PIN = 22
+MISO_PIN = 21
 
 SPI_BUS = 0
 SPI_DEVICE = 0
@@ -106,11 +106,18 @@ def read_can_fd_data():
     frame_size = 8
     #frame_size = sensor_frame_sizes[get_CANID()]
     tx = [0] * frame_size
+    tx = [0x03,0x60,0x00]
     try:
         
         GPIO.output(CS_PIN,GPIO.LOW)
+        rx = spi.xfer2(tx)
+        GPIO.output(CS_PIN,GPIO.HIGH)
+        print(f"readbytes {rx[2]}")
+        if rx[2]=="1":
+            
+
+
         print(f"readbytes {spi.readbytes(8)}")
-        rx = spi.xfer(tx)
         
         data = ''.join(f"{byte:02X}" for byte in rx)
         print(f"Data being received {data}")
