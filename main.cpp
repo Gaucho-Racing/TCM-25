@@ -11,8 +11,8 @@
 #include <cstring>
 
 // Define GPIO pin numbers for CS and INT
-const int CS_PIN = <what the fuck is the pin number>; //connect to SPI_CS0
-const int INT_PIN = <which pins are we connecting to?>; //connect to PIN 32
+const int CS_PIN = 24; //connect to SPI_CS0, probably pin 24
+const int INT_PIN = 32; //connect to PIN 32
 #define SPI_BUS 0     
 #define SPI_DEVICE 0   
 #define SPI_SPEED 20000000 // MCP2518FD should be 20 Mhz

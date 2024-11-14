@@ -10,8 +10,8 @@ import time
 import logging
 
 # Define GPIO 
-CS_PIN = 24 
-INT_PIN = 32   
+CS_PIN = 8 
+INT_PIN = 8   
 
 SPI_BUS = 0
 SPI_DEVICE = 0
@@ -32,7 +32,8 @@ sensor_files = {
 # Map of CAN IDs to frame size
 # ffs please update the spreadsheet https://docs.google.com/spreadsheets/d/1XfJhhAQoDnuSuwluNitPsDWtuQu-bP-VbEGPmSo5ujA/edit?gid=68138563#gid=68138563
 sensor_frame_sizes = {
-    "0x100102": 16 ,
+    "0x169420": 8, # test canfd, 11/13 can 2.0 transmission test
+    "0x100102": "dude",
     "0x100103": "acu.log",
     "0x100105": "dash_panel.log",
     "0x100106": "steering_wheel.log",
@@ -96,7 +97,7 @@ def close_spi():
 
 def sort_sensor_data(data):
     can_id = data[:9]
-    return sensor_files.get(can_id, "misc_sensor_data.log")
+    return sensor_files.get(can_id, "test_misc_sensor_data.log")
 
 def log_data(data):
     with open("test_CANFD.log", "a") as logfile:
@@ -110,10 +111,12 @@ def main():
     try:
         while True:
             if GPIO.input(INT_PIN) == GPIO.HIGH:
+                print("CANFD data being read idfk")
                 data = read_can_fd_data()
                 if data:
+                    print("Data actually being recorded lol")
                     log_data(data)
-                    # Send data if needed
+                    # someone add send data function
 
             time.sleep(0.01)
     except KeyboardInterrupt:
