@@ -10,10 +10,10 @@ import time
 import logging
 
 # Define GPIO 
-CS_PIN = 7
-# SCK_PIN = 23
-# MOSI_PIN = 19
-# MISO_PIN = 22
+CS_PIN = 24
+SCK_PIN = 23
+MOSI_PIN = 19
+MISO_PIN = 22
 
 SPI_BUS = 0
 SPI_DEVICE = 0
@@ -52,6 +52,9 @@ logging.basicConfig(filename='test_CANFD.log', level=logging.DEBUG)
 def init_gpio():
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(CS_PIN, GPIO.OUT,initial=GPIO.HIGH)
+    GPIO.setup(SCK_PIN, GPIO.OUT,initial=GPIO.HIGH)
+    GPIO.setup(MOSI_PIN, GPIO.OUT,initial=GPIO.HIGH)
+    GPIO.setup(MISO_PIN, GPIO.OUT,initial=GPIO.HIGH)
 
 def init_spi():
     try:
@@ -87,6 +90,7 @@ def get_CANID():
     frame_size = 4 # 3 bytes per CANID?
     tx = [0] * frame_size
     try:
+        #GPIO.output(CS_PIN,GPIO.LOW)
         rx = spi.xfer2(tx)
         CANID = ''.join(f"{byte:02X}" for byte in rx)
         
@@ -103,15 +107,19 @@ def read_can_fd_data():
     #frame_size = sensor_frame_sizes[get_CANID()]
     tx = [0] * frame_size
     try:
-        rx = spi.xfer2(tx)
+        
+        GPIO.output(CS_PIN,GPIO.LOW)
+        print(f"readbytes {spi.readbytes(8)}")
+        rx = spi.xfer(tx)
+        
         data = ''.join(f"{byte:02X}" for byte in rx)
-        #print(f"Data being received {data}")
-        if data[0:6] == "0x123":
-            print("HOLY SHIT BRO IT RECEIVES SHIT")
-            print("HOLY SHIT BRO IT RECEIVES SHIT")
-            print("HOLY SHIT BRO IT RECEIVES SHIT")
-            print("HOLY SHIT BRO IT RECEIVES SHIT")
-            print("HOLY SHIT BRO IT RECEIVES SHIT")
+        print(f"Data being received {data}")
+        # if data[0:3] != "000:
+        #     print("HOLY SHIT BRO IT RECEIVES SHIT")
+        #     print("HOLY SHIT BRO IT RECEIVES SHIT")
+        #     print("HOLY SHIT BRO IT RECEIVES SHIT")
+        #     print("HOLY SHIT BRO IT RECEIVES SHIT")
+        #     print("HOLY SHIT BRO IT RECEIVES SHIT")
         with open("data_check_CANFD.log", "a") as logfile:
             logfile.write(f"test: {data}\n")
         
