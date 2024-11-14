@@ -10,7 +10,7 @@ import time
 import logging
 
 # Define GPIO 
-CS_PIN = 24
+CS_PIN = 7
 # SCK_PIN = 23
 # MOSI_PIN = 19
 # MISO_PIN = 22
@@ -67,12 +67,12 @@ def set_can_baud_rate(spi):
     NBTCFG = [0x00,0x01,0x1C,0x03] # 500kbps baud
     DBTCFG = [0x00,0x00,0x05,0x01] # 8Mbps
 
-    spi.xfer2([0x0C]+NBTCFG)
+    spi.xfer2([0x04]+NBTCFG)
     spi.xfer2([0x10]+DBTCFG)
 
     
 def get_CANID():
-    frame_size = 3 # 3 bytes per CANID?
+    frame_size = 4 # 3 bytes per CANID?
     tx = [0] * frame_size
     try:
         rx = spi.xfer2(tx)
@@ -87,13 +87,19 @@ def get_CANID():
         return None
 
 def read_can_fd_data():
-    #frame_size = 8
-    frame_size = sensor_frame_sizes[get_CANID()]
+    frame_size = 8
+    #frame_size = sensor_frame_sizes[get_CANID()]
     tx = [0] * frame_size
     try:
         rx = spi.xfer2(tx)
         data = ''.join(f"{byte:02X}" for byte in rx)
-        
+        print(f"Data being received {data}")
+        if data[0:6] == "0x123":
+            print("HOLY SHIT BRO IT RECEIVES SHIT")
+            print("HOLY SHIT BRO IT RECEIVES SHIT")
+            print("HOLY SHIT BRO IT RECEIVES SHIT")
+            print("HOLY SHIT BRO IT RECEIVES SHIT")
+            print("HOLY SHIT BRO IT RECEIVES SHIT")
         with open("data_check_CANFD.log", "a") as logfile:
             logfile.write(f"test: {data}\n")
         
