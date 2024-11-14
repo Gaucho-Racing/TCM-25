@@ -10,8 +10,10 @@ import time
 import logging
 
 # Define GPIO 
-CS_PIN = 8 
-INT_PIN = 8   
+CS_PIN = 24
+# SCK_PIN = 23
+# MOSI_PIN = 19
+# MISO_PIN = 22
 
 SPI_BUS = 0
 SPI_DEVICE = 0
@@ -49,8 +51,7 @@ logging.basicConfig(filename='test_CANFD.log', level=logging.DEBUG)
 
 def init_gpio():
     GPIO.setmode(GPIO.BCM)
-    GPIO.setup(CS_PIN, GPIO.OUT)
-    GPIO.setup(INT_PIN, GPIO.IN)
+    GPIO.setup(CS_PIN, GPIO.OUT,initial=GPIO.HIGH)
 
 def init_spi():
     try:
@@ -123,21 +124,21 @@ def main():
     set_can_baud_rate(spi)
     try:
         while True:
-            if GPIO.input(INT_PIN) == GPIO.HIGH:
-                print("CANFD data being read idfk")
-                data = read_can_fd_data()
-                print(data)
-                if data:
-                    print("Data actually being recorded lol")
-                    if data != "0000000000000000":
-                        print("HOLY SHIT BRO IT RECEIVES SHIT")
-                        print("HOLY SHIT BRO IT RECEIVES SHIT")
-                        print("HOLY SHIT BRO IT RECEIVES SHIT")
-                        print("HOLY SHIT BRO IT RECEIVES SHIT")
-                        print("HOLY SHIT BRO IT RECEIVES SHIT")
-                        log_actual_data(data)
-                    log_data(data)
-                    # someone add send data function
+            #if GPIO.input(INT_PIN) == GPIO.HIGH:
+            print("CANFD data being read idfk")
+            data = read_can_fd_data()
+            print(data)
+            if data:
+                print("Data actually being recorded lol")
+                if data != "0000000000000000":
+                    print("HOLY SHIT BRO IT RECEIVES SHIT")
+                    print("HOLY SHIT BRO IT RECEIVES SHIT")
+                    print("HOLY SHIT BRO IT RECEIVES SHIT")
+                    print("HOLY SHIT BRO IT RECEIVES SHIT")
+                    print("HOLY SHIT BRO IT RECEIVES SHIT")
+                    log_actual_data(data)
+                log_data(data)
+                # someone add send data function
 
             time.sleep(0.01)
     except KeyboardInterrupt:
