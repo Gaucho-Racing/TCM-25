@@ -52,9 +52,9 @@ logging.basicConfig(filename='test_CANFD.log', level=logging.DEBUG)
 def init_gpio():
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(CS_PIN, GPIO.OUT,initial=GPIO.HIGH)
-    GPIO.setup(SCK_PIN, GPIO.OUT,initial=GPIO.HIGH)
-    GPIO.setup(MOSI_PIN, GPIO.OUT,initial=GPIO.HIGH)
-    GPIO.setup(MISO_PIN, GPIO.OUT,initial=GPIO.HIGH)
+    # GPIO.setup(SCK_PIN, GPIO.OUT,initial=GPIO.HIGH)
+    # GPIO.setup(MOSI_PIN, GPIO.OUT,initial=GPIO.HIGH)
+    # GPIO.setup(MISO_PIN, GPIO.OUT,initial=GPIO.HIGH)
 
 def init_spi():
     try:
@@ -111,20 +111,30 @@ def get_CANID():
         print(f"Failed to communicate over SPI: {e}")
         return None
 
+# Example fn to read reg
+def ReadReg(self, reg_address):
+    self.bus.open(self.spi_bus_number, self.spi_dev_number)
+    tx = [reg_address | self.__READ_FLAG, 0x00]
+    rx = self.bus.xfer2(tx)
+    self.bus.close()
+    return rx[1]
+
 def read_can_fd_data():
     frame_size = 8
     #frame_size = sensor_frame_sizes[get_CANID()]
-    tx = [0] * frame_size
-    tx = [0x03,0x60,0x00]
+    #tx = [0] * frame_size
+    #tx = [0x03,0x60,0x00]
+    reg_address = 0x60
+    tx = [reg_address | 0x80] + [0x00] * frame_size # frame size determines the amount of dummy bytes to send to get data back
     try:
-        
-        GPIO.output(CS_PIN,GPIO.LOW)
-        rx = spi.xfer2(tx)
-        GPIO.output(CS_PIN,GPIO.HIGH)
-        print(f"readbytes {rx[2]}")
-        status_response = spi.xfer2([0x03,0x60,0x00])
-        print(f"status: {status_response}")
-        if rx[2]==255:
+        GPIO.output(CS_PIN,GPIO.LOW) # pin must be set to low to read data
+        rx = spi.xfer2(tx) # each item is sent to the register and the register responds with data back that will populate rx
+        print(f"rx0{rx[0]}")
+        print(f"rx1{rx[1]}")
+        #status_response = spi.xfer2([0x03,0x60,0x00])
+        #print(f"status: {status_response}")
+        # Hopefully this shit is useless
+        if rx[1] & 0x01:
             fifo_user_address_register = 0x64
             user_address_response = spi.xfer2([0x03, fifo_user_address_register, 0x00, 0x00])
             print(user_address_response)
@@ -140,7 +150,6 @@ def read_can_fd_data():
             # 4. Parse the CAN message data
             print("CAN message data:", message_response)
 
-
         print(f"readbytes {spi.readbytes(8)}")
         
         data = ''.join(f"{byte:02X}" for byte in rx)
@@ -153,7 +162,7 @@ def read_can_fd_data():
         #     print("HOLY SHIT BRO IT RECEIVES SHIT")
         with open("data_check_CANFD.log", "a") as logfile:
             logfile.write(f"test: {data}\n")
-        
+        GPIO.output(CS_PIN,GPIO.HIGH)
         return data
     except Exception as e:
         print(f"Failed to communicate over SPI: {e}")
