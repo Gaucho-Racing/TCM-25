@@ -1,3 +1,9 @@
+# TODO:
+# config mcp2518
+#     reset, can control register config, fifo reg setup
+# receive data from fifos
+
+
 import Jetson.GPIO as GPIO
 import spidev
 import os
@@ -32,17 +38,22 @@ def init_spi():
         print(f"Failed to open SPI device: {e}")
         return False
 
-def reset_mcp2518fd():
-    spi.xfer2([0xC0])  # reset
-    time.sleep(0.01)  
+def reset_mcp2518fd(spi):
+    try:
+        GPIO.output(CS_PIN, GPIO.LOW)
+        balls = spi.xfer2([0xC0])  # reset
+        time.sleep(0.01)
+        GPIO.output(CS_PIN, GPIO.HIGH)  
+    except Exception as e:
+        print(f"fuck {e}")
 
-def config_mode():
+def config_mode(spi):
     # request config mode
     ctrl_register = 12312124 # page 26, can control register
     spi.xfer2([0x02,ctrl_register,0x80]) # write, register, command
     time.sleep(0.01) 
 
-def check_config_mode():
+def check_config_mode(spi):
     ctrl_register = 24234234
 
     response = spi.xfer2([0x03, ctrl_register, 0x00, 0x00, 0x00, 0x00]) # read, reg, 4x dummy
@@ -53,10 +64,10 @@ def check_config_mode():
     reqop = (mode >> 24) & 0x07  # Shift down by 24 bits, mask to 3 bits
     return reqop == 0b100
 
-reset_mcp2518fd()
-config_mode()
+reset_mcp2518fd(spi)
+config_mode(spi)
 
-if check_config_mode():
+if check_config_mode(spi):
     print("w config mode")
 else:
     print("FFS")
