@@ -73,11 +73,6 @@ def set_can_baud_rate(spi):
     spi.xfer2([0x04]+NBTCFG)
     spi.xfer2([0x10]+DBTCFG)
 
-def set_normal_mode(spi):
-    mode_command = [0x01,0x00]
-    spi.xfer2(mode_command)
-    print("Normal mode set")
-
 def check_mode(spi):
     response = spi.xfer2([0x01,0x00])
     mode = response[1]
@@ -128,6 +123,7 @@ def read_can_fd_data():
     tx = [reg_address | 0x80] + [0x00] * frame_size # frame size determines the amount of dummy bytes to send to get data back
     try:
         GPIO.output(CS_PIN,GPIO.LOW) # pin must be set to low to read data
+        #xfer3(list of values to be written, number of bytes to read [, speed_hz, delay_usec, bits_per_word])
         rx = spi.xfer2(tx) # each item is sent to the register and the register responds with data back that will populate rx
         print(f"rx0{rx[0]}")
         print(f"rx1{rx[1]}")
