@@ -41,7 +41,7 @@ def init_spi():
 def reset_mcp2518fd(spi):
     try:
         GPIO.output(CS_PIN, GPIO.LOW)
-        balls = spi.xfer2([0xC0])  # reset
+        balls = spi.xfer2([0x00])  # reset
         time.sleep(0.01)
         GPIO.output(CS_PIN, GPIO.HIGH)  
     except Exception as e:
@@ -49,12 +49,12 @@ def reset_mcp2518fd(spi):
 
 def config_mode(spi):
     # request config mode
-    ctrl_register = 12312124 # page 26, can control register
+    ctrl_register = 0x00# page 26, can control register
     spi.xfer2([0x02,ctrl_register,0x80]) # write, register, command
     time.sleep(0.01) 
 
 def check_config_mode(spi):
-    ctrl_register = 24234234
+    ctrl_register = 0x00
 
     response = spi.xfer2([0x03, ctrl_register, 0x00, 0x00, 0x00, 0x00]) # read, reg, 4x dummy
     
@@ -63,7 +63,8 @@ def check_config_mode(spi):
     # Extract REQOP bits (24-26) and check if they are 0b100 (configuration mode)
     reqop = (mode >> 24) & 0x07  # Shift down by 24 bits, mask to 3 bits
     return reqop == 0b100
-
+init_gpio()
+init_spi()
 reset_mcp2518fd(spi)
 config_mode(spi)
 
