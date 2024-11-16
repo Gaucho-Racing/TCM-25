@@ -108,6 +108,15 @@ void configureCANFilter() {
     std::cout << "CAN Filter 0 configured to accept SID 0x300 with matching IDE bit." << std::endl;
 }
 
+void configureInterrupts(){
+    DRV_CANFDSPI_ModuleEventClear(DRV_CANFDSPI_Index_0(), CAN_ALL_EVENTS);
+
+
+    DRV_CANFDSPI_TransmitChannelEventEnable(DRV_CANFDSPI_INDEX_0, CAN_TXQUEUE_CH0,CAN_TX_FIFO_NOT_FULL_EVENT);
+    DRV_CANFDSPI_ReceiveChannelEventEnable(DRV_CANFDSPI_INDEX_0, CAN_FIFO_CH2,CAN_RX_FIFO_NOT_EMPTY_EVENT);
+    DRV_CANFDSPI_ModuleEventEnable(DRV_CANFDSPI_INDEX_0, CAN_TX_EVENT | CAN_RX_EVENT);
+}
+
 void configureMCP2518FD() {
     // Reset device
     DRV_CANFDSPI_Reset(DRV_CANFDSPI_INDEX_0);
@@ -164,6 +173,8 @@ void configureMCP2518FD() {
     std::cout << "MCP2518FD configured!" << std::endl;
     configureCANFilter();
     std::this_thread::sleep_for(std::chrono::milliseconds(100)); 
+    configureInterrupts();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100)); 
     // Enable ECC
     DRV_CANFDSPI_EccEnable(DRV_CANFDSPI_INDEX_0);
     // Initialize RAM
@@ -172,6 +183,21 @@ void configureMCP2518FD() {
     DRV_CANFDSPI_OperationModeSelect(DRV_CANFDSPI_INDEX_0, CAN_NORMAL_MODE);
 }
 
+bool checkNewMessage(){
+    CAN_RX_MSGOBJ rxObj;
+    uint8_t rxd[MAX_DATA_BYTES];
+    uint32_t ts;
+
+    if (APP_RX_INT()){
+        DRV_CANFDSPI_ReceiveMessageGet(DRV_CANFDSPI_INDEX_0, CAN_FIFO_CH2, &rxObj, rxd, MAX_DATA_BYTES);
+        if (rxObj.bF.id.SID == 0x300 && rxObj.bF.ctrl.IDE == 0){
+            Nop(); Nop();
+            ts = rxObj.bF.timeStamp;
+            return true;
+        }
+    }
+    return false;
+}
 
 void readCANMessage() {
     CAN_RX_MSGOBJ rxObj;
@@ -193,9 +219,7 @@ void readCANMessage() {
 
 int main() {
     initGPIO();
-    if (!initSPI()) {
-        return -1;
-    }
+    DRV_SPI_Initialize(DRV_CANFDSPI_INDEX_0, NULL); // WIP: check what args to pass
     configureMCP2518FD();
     while (true) {
         std::string data;
@@ -208,7 +232,7 @@ int main() {
         //     continue reading from fifo until no new message
         // if fifo overrun int
         //    what the fuck do i do here
-        if (GPIO::input(INT_PIN) == GPIO::HIGH) { // regular interrupt(not full)
+        if (checkNewMessage()) { // regular interrupt(not full)
             readCANMessage();
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10)); 
