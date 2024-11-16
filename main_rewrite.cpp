@@ -12,7 +12,7 @@
 #include "drv_canfdspi_api.h"
 
 // I NEED SOMEONE TO CHECK MY WORK
-// we need to config our mcp2518fd first
+// we need to config our mcp2518fd first( use https://www.microchip.com/en-us/tools-resources/configure/mplab-harmony/configurator)
 //    to do this we reset and then config registers
 //    we also need to config the filter register
 // then we set to normal mode and we should be good to go 
@@ -33,43 +33,50 @@ void initGPIO() {
     GPIO::setup(INT_PIN, GPIO::IN); 
 }
 
-bool initSPI() {
-    std::string spi_device = "/dev/spidev" + std::to_string(SPI_BUS) + "." + std::to_string(SPI_DEVICE);
-    spi_fd = open(spi_device.c_str(), O_RDWR);
-    if (spi_fd < 0) {
-        std::cerr << "Failed to open SPI device: " << strerror(errno) << std::endl;
-        return false;
+//init spi, reference pg 72
+SYS_MODULE_OBJ DRV_SPI_Initialize(const SYS_MODULE_INDEX index, const SYS_MODULE_INIT * const init)
+{
+    /* Disable the SPI module to configure it */
+    PLIB_SPI_Disable(SPI_ID_1);
+
+    /* Set up Master mode */
+    PLIB_SPI_MasterEnable(SPI_ID_1);
+    PLIB_SPI_PinDisable(SPI_ID_1, SPI_PIN_SLAVE_SELECT); // Ensure nCS is manually controlled
+
+    /* Set up the SPI to work while the rest of the CPU is in idle mode */
+    PLIB_SPI_StopInIdleDisable(SPI_ID_1);
+
+    /* Set up clock polarity and clock data phase (Mode 0, 0) */
+    PLIB_SPI_ClockPolaritySelect(SPI_ID_1, SPI_CLOCK_POLARITY_IDLE_LOW);  // CPOL = 0
+    PLIB_SPI_OutputDataPhaseSelect(SPI_ID_1, SPI_OUTPUT_DATA_PHASE_ON_ACTIVE_TO_IDLE_CLOCK); // CPHA = 0
+
+    /* Set up the input sample phase */
+    PLIB_SPI_InputSamplePhaseSelect(SPI_ID_1, SPI_INPUT_SAMPLING_PHASE_IN_MIDDLE);
+
+    /* Communication width selection */
+    PLIB_SPI_CommunicationWidthSelect(SPI_ID_1, SPI_COMMUNICATION_WIDTH_8BITS); // 8-bit data width
+
+    /* Baud rate selection (max 20 MHz for MCP2518FD) */
+    PLIB_SPI_BaudRateSet(SPI_ID_1, SYS_CLK_PeripheralFrequencyGet(CLK_BUS_PERIPHERAL_1), 20000000); // 20 MHz
+
+    /* Protocol selection (Standard SPI) */
+    PLIB_SPI_FramedCommunicationDisable(SPI_ID_1);
+
+    /* FIFO buffer type selection */
+    if (PLIB_SPI_ExistsFIFOControl(SPI_ID_1)) {
+        PLIB_SPI_FIFOEnable(SPI_ID_1);  // Enable FIFO
+        PLIB_SPI_FIFOInterruptModeSelect(SPI_ID_1, SPI_FIFO_INTERRUPT_WHEN_TRANSMIT_BUFFER_IS_COMPLETELY_EMPTY);
+        PLIB_SPI_FIFOInterruptModeSelect(SPI_ID_1, SPI_FIFO_INTERRUPT_WHEN_RECEIVE_BUFFER_IS_NOT_EMPTY);
     }
 
-    uint8_t mode = SPI_MODE_0;
-    uint8_t bits = 8;
-    uint32_t speed = SPI_SPEED;
+    /* Clear any buffers or flags */
+    PLIB_SPI_BufferClear(SPI_ID_1);
+    PLIB_SPI_ReceiverOverflowClear(SPI_ID_1);
 
-    // Set SPI mode
-    if (ioctl(spi_fd, SPI_IOC_WR_MODE, &mode) < 0) {
-        std::cerr << "Failed to set SPI mode: " << strerror(errno) << std::endl;
-        return false;
-    }
+    /* Enable the SPI module */
+    PLIB_SPI_Enable(SPI_ID_1);
 
-    // Set bits per word
-    if (ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD, &bits) < 0) {
-        std::cerr << "Failed to set SPI bits per word: " << strerror(errno) << std::endl;
-        return false;
-    }
-
-    // Set max speed (in Hz)
-    if (ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed) < 0) {
-        std::cerr << "Failed to set SPI speed: " << strerror(errno) << std::endl;
-        return false;
-    }
-
-    return true;
-}
-
-void closeSPI() {
-    if (spi_fd >= 0) {
-        close(spi_fd);
-    }
+    return (SYS_MODULE_OBJ) DRV_SPI_INDEX_0;
 }
 
 void configureCANFilter() {
@@ -192,7 +199,16 @@ int main() {
     configureMCP2518FD();
     while (true) {
         std::string data;
-        if (GPIO::input(INT_PIN) == GPIO::HIGH) { // check for new msg
+        // data for the below is on pg 61 of family data sheet
+        // read 10.4 and 10.5 to check how to read combined status reg
+        // CiRXIF for receive interrupt. reflected in CiRXIF.RFIF<m> flag
+        // CiRXOVIF checks for overflow
+        // ^ bit 0 is txq, bit 1 is fifo 1, bit 2 is fifo 2, etc to bit 31 is fifo 31
+        // if receive fifo half full int. or fifo full int. 
+        //     continue reading from fifo until no new message
+        // if fifo overrun int
+        //    what the fuck do i do here
+        if (GPIO::input(INT_PIN) == GPIO::HIGH) { // regular interrupt(not full)
             readCANMessage();
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10)); 
