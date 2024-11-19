@@ -52,8 +52,10 @@ int main() {
     // Set up a catch-all filter
     setup_catch_all_filter(SPI_init);
 
-    // Read a single CAN message
+    while (1) {
     read_can_message(SPI_init);
+    usleep(1000); // Optional delay to prevent excessive polling
+}
 
     // Cleanup
     spiClose(SPI_init);
@@ -195,6 +197,12 @@ void read_can_message(int spi_handle) {
         return;
     }
 
+    // Check if RX FIFO is empty
+    if (rx_buffer[0] == 0) { // Adjust condition based on MCP2518FD status flags
+        printf("No messages in RX FIFO.\n");
+        return;
+    }
+
     // Parse Received Data
     uint32_t can_id = (rx_buffer[1] << 24) | (rx_buffer[2] << 16) | (rx_buffer[3] << 8) | rx_buffer[4];
     uint8_t dlc = rx_buffer[5];
@@ -211,4 +219,3 @@ void read_can_message(int spi_handle) {
     }
     printf("\n");
 }
-
