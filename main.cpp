@@ -52,6 +52,14 @@ int main() {
     // Set up a catch-all filter
     setup_catch_all_filter(SPI_init);
 
+    // Switch to Normal mode
+    if (switch_to_normal_mode(SPI_init) != 0) {
+        printf("Failed to switch MCP2518FD to Normal mode.\n");
+        spiClose(SPI_init);
+        gpioTerminate();
+        exit(-1);
+    }
+
     while (1) {
     read_can_message(SPI_init);
     usleep(1000); // Optional delay to prevent excessive polling
@@ -84,12 +92,19 @@ int initialize_mcp2518fd(int spi_handle) {
     // Configure baud rate
     configure_baud_rate(spi_handle);
 
-    // Switch to Normal mode (REQOP = 0b000)
-    tx_buffer[2] = 0x00; // Normal mode
+}
+
+int switch_to_normal_mode(int spi_handle) {
+    uint8_t tx_buffer[4] = {0x02, 0x00, 0x00, 0x00}; // Write to CiCON to set REQOP=000
+    uint8_t rx_buffer[4] = {0};
+
     if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 4) < 0) {
-        printf("Failed to switch MCP2518FD to Normal mode.\n");
+        printf("Failed to switch to Normal mode.\n");
         return -1;
     }
+
+    // Optional: Verify OPMOD bits
+    // ...
 
     printf("MCP2518FD switched to Normal mode.\n");
     return 0;
