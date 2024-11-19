@@ -108,22 +108,34 @@ void configure_baud_rate(int spi_handle) {
 }
 
 void read_can_message(int spi_handle) {
-    uint8_t tx_buffer[BUFFER_SIZE] = {0};
-    uint8_t rx_buffer[BUFFER_SIZE] = {0};
+    uint8_t tx_buffer[16] = {0};
+    uint8_t rx_buffer[16] = {0};
 
-    // Read RX FIFO (example: RX FIFO 1)
-    tx_buffer[0] = 0x30; // Read command (FIFO Control)
+    // Build SPI Read Command for RX FIFO
+    tx_buffer[0] = 0x30; // Read command
     tx_buffer[1] = (RX_FIFO_ADDRESS >> 8) & 0xFF; // High byte of FIFO address
     tx_buffer[2] = RX_FIFO_ADDRESS & 0xFF;        // Low byte of FIFO address
 
-    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 16) < 0) {
+    // Perform SPI Transfer to Read RX FIFO
+    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 13) < 0) {
         printf("Failed to read RX FIFO.\n");
         return;
     }
 
-    printf("Received CAN message:\n");
-    for (int i = 0; i < 16; i++) {
-        printf("0x%02X ", rx_buffer[i]);
+    // Parse Received Data
+    uint32_t can_id = (rx_buffer[1] << 24) | (rx_buffer[2] << 16) | (rx_buffer[3] << 8) | rx_buffer[4];
+    uint8_t dlc = rx_buffer[5];
+    uint8_t data[8];
+    memcpy(data, &rx_buffer[6], 8); // Copy 8 bytes of data payload
+
+    // Print CAN Message
+    printf("Received CAN Message:\n");
+    printf("CAN ID: 0x%08X\n", can_id);
+    printf("DLC: %d\n", dlc);
+    printf("Data: ");
+    for (int i = 0; i < dlc; i++) {
+        printf("0x%02X ", data[i]);
     }
     printf("\n");
 }
+
