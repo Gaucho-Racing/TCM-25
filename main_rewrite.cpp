@@ -22,6 +22,97 @@ const int INT_PIN = 32;
 #define SPI_BUS 0     
 #define SPI_DEVICE 0   
 #define SPI_SPEED 20000000 // MCP2518FD should be 20 Mhz
+#define DRV_CANFDSPI_INDEX_0         0 //reset device
+#define MCP2518FD //#define MCP2517FD
+#define MAX_DATA_BYTES 64 // Maximum number of data bytes in message
+
+typedef enum { //! CAN RX FIFO Event (Interrupts)
+    CAN_RX_FIFO_NO_EVENT = 0,
+    CAN_RX_FIFO_ALL_EVENTS = 0x0F,
+    CAN_RX_FIFO_NOT_EMPTY_EVENT = 0x01,
+    CAN_RX_FIFO_HALF_FULL_EVENT = 0x02,
+    CAN_RX_FIFO_FULL_EVENT = 0x04,
+    CAN_RX_FIFO_OVERFLOW_EVENT = 0x08
+} CAN_RX_FIFO_EVENT;
+typedef union _CAN_RX_MSGOBJ { //!CAN RX Message Object
+
+    struct {
+        CAN_MSGOBJ_ID id;
+        CAN_RX_MSGOBJ_CTRL ctrl;
+        CAN_MSG_TIMESTAMP timeStamp;
+    } bF;
+    uint32_t word[3];
+    uint8_t byte[12];
+} CAN_RX_MSGOBJ;
+int8_t DRV_CANFDSPI_RamInit(CANFDSPI_MODULE_ID index, uint8_t d)
+{
+    uint8_t txd[SPI_DEFAULT_BUFFER_LENGTH/2];
+    uint32_t k;
+    int8_t spiTransferError = 0;
+
+    // Prepare data
+    for (k = 0; k < SPI_DEFAULT_BUFFER_LENGTH/2; k++) {
+        txd[k] = d;
+    }
+
+    uint16_t a = cRAMADDR_START;
+
+    for (k = 0; k < ((cRAM_SIZE / SPI_DEFAULT_BUFFER_LENGTH) * 2); k++) {
+        spiTransferError = DRV_CANFDSPI_WriteByteArray(index, a, txd, SPI_DEFAULT_BUFFER_LENGTH/2);
+        if (spiTransferError) {
+            return -1;
+        }
+        a += SPI_DEFAULT_BUFFER_LENGTH/2;
+    }
+
+    return spiTransferError;
+}
+int8_t DRV_CANFDSPI_OperationModeSelect(CANFDSPI_MODULE_ID index,
+        CAN_OPERATION_MODE opMode)
+{
+    uint8_t d = 0;
+    int8_t spiTransferError = 0;
+
+    // Read
+    spiTransferError = DRV_CANFDSPI_ReadByte(index, cREGADDR_CiCON + 3, &d);
+    if (spiTransferError) {
+        return -1;
+    }
+
+    // Modify
+    d &= ~0x07;
+    d |= opMode;
+
+    // Write
+    spiTransferError = DRV_CANFDSPI_WriteByte(index, cREGADDR_CiCON + 3, d);
+    if (spiTransferError) {
+        return -2;
+    }
+
+    return spiTransferError;
+}
+int8_t DRV_CANFDSPI_EccEnable(CANFDSPI_MODULE_ID index)
+{
+    int8_t spiTransferError = 0;
+    uint8_t d = 0;
+
+    // Read
+    spiTransferError = DRV_CANFDSPI_ReadByte(index, cREGADDR_ECCCON, &d);
+    if (spiTransferError) {
+        return -1;
+    }
+
+    // Modify
+    d |= 0x01;
+
+    // Write
+    spiTransferError = DRV_CANFDSPI_WriteByte(index, cREGADDR_ECCCON, d);
+    if (spiTransferError) {
+        return -2;
+    }
+
+    return 0;
+}
 
 constexpr int MAX_DATA_BYTES = 64;
 
