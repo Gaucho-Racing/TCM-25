@@ -46,7 +46,11 @@ int main() {
         exit(-1);
     }
 
-    
+    // Set up RX FIFO at 0x400
+    setup_rx_fifo(SPI_init);
+
+    // Set up a catch-all filter
+    setup_catch_all_filter(SPI_init);
 
     // Read a single CAN message
     read_can_message(SPI_init);
@@ -77,12 +81,6 @@ int initialize_mcp2518fd(int spi_handle) {
 
     // Configure baud rate
     configure_baud_rate(spi_handle);
-
-    // Set up RX FIFO at 0x400
-    setup_rx_fifo(SPI_init);
-
-    // Set up a catch-all filter
-    setup_catch_all_filter(SPI_init);
 
     // Switch to Normal mode (REQOP = 0b000)
     tx_buffer[2] = 0x00; // Normal mode
