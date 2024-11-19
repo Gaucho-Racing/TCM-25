@@ -10,6 +10,7 @@
 #include <linux/spi/spidev.h>
 #include <cstring>
 #include "drv_canfdspi_api.h"
+#include <jetgpio.h>
 
 // I NEED SOMEONE TO CHECK MY WORK
 // we need to config our mcp2518fd first( use https://www.microchip.com/en-us/tools-resources/configure/mplab-harmony/configurator)
@@ -31,52 +32,6 @@ void initGPIO() {
     GPIO::setmode(GPIO::BCM);
     GPIO::setup(CS_PIN, GPIO::OUT);
     GPIO::setup(INT_PIN, GPIO::IN); 
-}
-
-//init spi, reference pg 72
-SYS_MODULE_OBJ DRV_SPI_Initialize(const SYS_MODULE_INDEX index, const SYS_MODULE_INIT * const init)
-{
-    /* Disable the SPI module to configure it */
-    PLIB_SPI_Disable(SPI_ID_1);
-
-    /* Set up Master mode */
-    PLIB_SPI_MasterEnable(SPI_ID_1);
-    PLIB_SPI_PinDisable(SPI_ID_1, SPI_PIN_SLAVE_SELECT); // Ensure nCS is manually controlled
-
-    /* Set up the SPI to work while the rest of the CPU is in idle mode */
-    PLIB_SPI_StopInIdleDisable(SPI_ID_1);
-
-    /* Set up clock polarity and clock data phase (Mode 0, 0) */
-    PLIB_SPI_ClockPolaritySelect(SPI_ID_1, SPI_CLOCK_POLARITY_IDLE_LOW);  // CPOL = 0
-    PLIB_SPI_OutputDataPhaseSelect(SPI_ID_1, SPI_OUTPUT_DATA_PHASE_ON_ACTIVE_TO_IDLE_CLOCK); // CPHA = 0
-
-    /* Set up the input sample phase */
-    PLIB_SPI_InputSamplePhaseSelect(SPI_ID_1, SPI_INPUT_SAMPLING_PHASE_IN_MIDDLE);
-
-    /* Communication width selection */
-    PLIB_SPI_CommunicationWidthSelect(SPI_ID_1, SPI_COMMUNICATION_WIDTH_8BITS); // 8-bit data width
-
-    /* Baud rate selection (max 20 MHz for MCP2518FD) */
-    PLIB_SPI_BaudRateSet(SPI_ID_1, SYS_CLK_PeripheralFrequencyGet(CLK_BUS_PERIPHERAL_1), 20000000); // 20 MHz
-
-    /* Protocol selection (Standard SPI) */
-    PLIB_SPI_FramedCommunicationDisable(SPI_ID_1);
-
-    /* FIFO buffer type selection */
-    if (PLIB_SPI_ExistsFIFOControl(SPI_ID_1)) {
-        PLIB_SPI_FIFOEnable(SPI_ID_1);  // Enable FIFO
-        PLIB_SPI_FIFOInterruptModeSelect(SPI_ID_1, SPI_FIFO_INTERRUPT_WHEN_TRANSMIT_BUFFER_IS_COMPLETELY_EMPTY);
-        PLIB_SPI_FIFOInterruptModeSelect(SPI_ID_1, SPI_FIFO_INTERRUPT_WHEN_RECEIVE_BUFFER_IS_NOT_EMPTY);
-    }
-
-    /* Clear any buffers or flags */
-    PLIB_SPI_BufferClear(SPI_ID_1);
-    PLIB_SPI_ReceiverOverflowClear(SPI_ID_1);
-
-    /* Enable the SPI module */
-    PLIB_SPI_Enable(SPI_ID_1);
-
-    return (SYS_MODULE_OBJ) DRV_SPI_INDEX_0;
 }
 
 void configureCANFilter() {
@@ -219,7 +174,35 @@ void readCANMessage() {
 
 int main() {
     initGPIO();
-    DRV_SPI_Initialize(DRV_CANFDSPI_INDEX_0, NULL); // WIP: check what args to pass
+    int Init;
+    int SPI_init;
+    int SPI_stat;
+    char tx[7] = {0,};
+    char rx[7] = {0,};
+    if (Init < 0)
+    {
+      /* jetgpio initialisation failed */
+      printf("Jetgpio initialisation failed. Error code:  %d\n", Init);
+      exit(Init);
+    }
+    else
+    {
+      /* jetgpio initialised okay*/
+      printf("Jetgpio initialisation OK. Return code:  %d\n", Init);
+    }
+
+    SPI_init = spiOpen(1, 5000000, 0, 0, 8, 1, 1);
+    if (SPI_init < 0)
+        {
+        /* Port SPI2 opening failed */
+        printf("Port SPI2 opening failed. Error code:  %d\n", SPI_init);
+        exit(Init);
+        }
+    else
+        {
+        /* Port SPI2 opened  okay*/
+        printf("Port SPI2 opened OK. Return code:  %d\n", SPI_init);
+        }
     configureMCP2518FD();
     while (true) {
         std::string data;
@@ -237,7 +220,8 @@ int main() {
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10)); 
     }
-
+    spiClose(SPI_init);
+    gpioTerminate();
     GPIO::cleanup();
     return 0;
 }
