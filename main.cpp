@@ -8,11 +8,14 @@
 #define CS_PIN 24
 #define SPI_SPEED 5000000 // 5 MHz
 #define RX_FIFO_ADDRESS 0x400 // Example address for FIFO
+#define RX_FIFO_CONTROL_ADDRESS 0x480 // CiFIFOCON1 base address
 #define BUFFER_SIZE 64
 
 int initialize_mcp2518fd(int spi_handle);
 void configure_baud_rate(int spi_handle);
 void read_can_message(int spi_handle);
+void setup_catch_all_filter(int spi_handle);
+void setup_rx_fifo(int spi_handle);
 
 int main() {
     int Init;
@@ -42,6 +45,12 @@ int main() {
         gpioTerminate();
         exit(-1);
     }
+
+    // Set up RX FIFO at 0x400
+    setup_rx_fifo(SPI_init);
+
+    // Set up a catch-all filter
+    setup_catch_all_filter(SPI_init);
 
     // Read a single CAN message
     read_can_message(SPI_init);
@@ -105,6 +114,70 @@ void configure_baud_rate(int spi_handle) {
         exit(-1);
     }
     printf("Baud rate configured to 1 Mbps.\n");
+}
+
+void setup_rx_fifo(int spi_handle) {
+    uint8_t tx_buffer[8] = {0};
+    uint8_t rx_buffer[8] = {0};
+
+    // Step 1: Configure RX FIFO base address and size in CiFIFOCON1
+    tx_buffer[0] = 0x02; // SPI Write Command
+    tx_buffer[1] = (RX_FIFO_CONTROL_ADDRESS >> 8) & 0xFF; // High byte of FIFO Control address
+    tx_buffer[2] = RX_FIFO_CONTROL_ADDRESS & 0xFF;        // Low byte of FIFO Control address
+    tx_buffer[3] = 0x00; // RX FIFO enabled
+    tx_buffer[4] = 0x04; // RX FIFO base address high byte (0x400 >> 8)
+    tx_buffer[5] = 0x00; // RX FIFO base address low byte (0x400 & 0xFF)
+    tx_buffer[6] = 0x08; // Payload size: 8 bytes per message
+    tx_buffer[7] = 0x10; // FIFO size: 16 messages (example)
+    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 8) < 0) {
+        printf("Failed to configure RX FIFO.\n");
+        return;
+    }
+
+    printf("RX FIFO configured at address 0x400.\n");
+}
+
+void setup_catch_all_filter(int spi_handle) {
+    uint8_t tx_buffer[8] = {0};
+    uint8_t rx_buffer[8] = {0};
+
+    // Step 1: Configure Filter Object (CiFLTOBJ0)
+    tx_buffer[0] = 0x02; // SPI Write Command
+    tx_buffer[1] = 0x1C; // High byte of Filter Object address
+    tx_buffer[2] = 0x00; // Low byte of Filter Object address
+    tx_buffer[3] = 0x00; // Match all CAN IDs
+    tx_buffer[4] = 0x00;
+    tx_buffer[5] = 0x00;
+    tx_buffer[6] = 0x00;
+    tx_buffer[7] = 0x00; // Reserved
+    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 8) < 0) {
+        printf("Failed to configure filter object.\n");
+        return;
+    }
+
+    // Step 2: Configure Filter Mask (CiMASK0)
+    tx_buffer[1] = 0x1C; // High byte of Filter Mask address
+    tx_buffer[2] = 0x04; // Low byte of Filter Mask address
+    tx_buffer[3] = 0x00; // Ignore all bits
+    tx_buffer[4] = 0x00;
+    tx_buffer[5] = 0x00;
+    tx_buffer[6] = 0x00;
+    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 8) < 0) {
+        printf("Failed to configure filter mask.\n");
+        return;
+    }
+
+    // Step 3: Enable Filter and Assign to RX FIFO (CiFLTCON0)
+    tx_buffer[1] = 0x1C; // High byte of Filter Control address
+    tx_buffer[2] = 0x08; // Low byte of Filter Control address
+    tx_buffer[3] = (1 << 5) | 0x01; // Assign to RX FIFO 1 and enable filter
+    tx_buffer[4] = 0x00; // Reserved
+    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 5) < 0) {
+        printf("Failed to enable filter.\n");
+        return;
+    }
+
+    printf("Catch-all filter configured successfully.\n");
 }
 
 void read_can_message(int spi_handle) {
