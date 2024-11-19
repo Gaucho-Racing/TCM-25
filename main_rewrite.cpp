@@ -9,8 +9,13 @@
 #include <unistd.h>
 #include <linux/spi/spidev.h>
 #include <cstring>
-#include "drv_canfdspi_api.h"
 #include <jetgpio.h>
+#include "app.h"
+#include "xc.h"
+#include "system_config.h"
+#include <math.h>
+#include "drv_canfdspi_api.h"
+#include "drv_canfdspi_register.h"
 
 // I NEED SOMEONE TO CHECK MY WORK
 // we need to config our mcp2518fd first( use https://www.microchip.com/en-us/tools-resources/configure/mplab-harmony/configurator)
@@ -23,6 +28,11 @@ const int INT_PIN = 32;
 #define SPI_BUS 0     
 #define SPI_DEVICE 0   
 #define SPI_SPEED 20000000 // MCP2518FD should be 20 Mhz
+
+#define APP_USE_RX_INT
+#define APP_RX_INT() !SYS_PORTS_PinRead(PORTS_ID_0, PORT_CHANNEL_D, PORTS_BIT_POS_0)
+#define APP_RX_FIFO CAN_FIFO_CH1
+CAN_RX_MSGOBJ rxObj;
 
 constexpr int MAX_DATA_BYTES = 64;
 
@@ -155,13 +165,13 @@ bool checkNewMessage(){
 }
 
 void readCANMessage() {
+    DRV_CANFDSPI_ReceiveMessageGet(DRV_CANFDSPI_INDEX_0, APP_RX_FIFO, &rxObj, rxd, MAX_DATA_BYTES);
+
     CAN_RX_MSGOBJ rxObj;
 
     uint8_t rxd[MAX_DATA_BYTES];
     CAN_RX_FIFO_EVENT rxFlags;
-
     DRV_CANFDSPI_ReceiveChannelEventGet(DRV_CANFDSPI_INDEX_0, CAN_FIFO_CH2, &rxFlags);
-
     if (rxFlags & CAN_RX_FIFO_NOT_EMPTY_EVENT) {
         DRV_CANFDSPI_ReceiveMessageGet(DRV_CANFDSPI_INDEX_0, CAN_FIFO_CH2, &rxObj, rxd, MAX_DATA_BYTES);
         std::cout << "Received Data: ";
