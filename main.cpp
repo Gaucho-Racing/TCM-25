@@ -92,6 +92,8 @@ int initialize_mcp2518fd(int spi_handle) {
     // Configure baud rate
     configure_baud_rate(spi_handle);
 
+    return 0;
+
 }
 
 int switch_to_normal_mode(int spi_handle) {
@@ -134,18 +136,29 @@ void configure_baud_rate(int spi_handle) {
 }
 
 void setup_rx_fifo(int spi_handle) {
-    uint8_t tx_buffer[8] = {0};
-    uint8_t rx_buffer[8] = {0};
+    uint8_t tx_buffer[12] = {0};
+    uint8_t rx_buffer[12] = {0};
 
-    // Step 1: Configure RX FIFO base address and size in CiFIFOCON1
+    // Set MCP2518FD to Configuration mode if not already
+    // This can be skipped if MCP2518FD is already in Configuration mode
+
+    // Step 1: Configure FIFO Control Register (CiFIFOCON1)
     tx_buffer[0] = 0x02; // SPI Write Command
     tx_buffer[1] = (RX_FIFO_CONTROL_ADDRESS >> 8) & 0xFF; // High byte of FIFO Control address
     tx_buffer[2] = RX_FIFO_CONTROL_ADDRESS & 0xFF;        // Low byte of FIFO Control address
-    tx_buffer[3] = 0x00; // RX FIFO enabled
-    tx_buffer[4] = 0x04; // RX FIFO base address high byte (0x400 >> 8)
-    tx_buffer[5] = 0x00; // RX FIFO base address low byte (0x400 & 0xFF)
-    tx_buffer[6] = 0x08; // Payload size: 8 bytes per message
-    tx_buffer[7] = 0x10; // FIFO size: 16 messages (example)
+
+    // Configure FIFO as RX FIFO
+    tx_buffer[3] = 0x00; // Configure as RX FIFO (TXEN = 0)
+    tx_buffer[4] = 0x00; // Control flags (e.g., timestamp enable)
+    tx_buffer[5] = (16 - 1); // FIFO size (number of messages)
+    tx_buffer[6] = 0x00; // FIFO size continued
+    tx_buffer[7] = 0x00; // Reserved
+
+    // Set the payload size and number of FIFO elements
+    // Example: Set payload size to 8 bytes and FIFO depth to 4 messages
+    tx_buffer[5] = (0x03 << 0); // FSIZE = 4 messages (FSIZE = n-1)
+    tx_buffer[6] = (0x00 << 4); // PLSIZE = 8 bytes (PLSIZE = 0x00)
+
     if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 8) < 0) {
         printf("Failed to configure RX FIFO.\n");
         return;
@@ -153,6 +166,7 @@ void setup_rx_fifo(int spi_handle) {
 
     printf("RX FIFO configured at address 0x400.\n");
 }
+
 
 void setup_catch_all_filter(int spi_handle) {
     uint8_t tx_buffer[8] = {0};
@@ -201,30 +215,24 @@ void read_can_message(int spi_handle) {
     uint8_t tx_buffer[16] = {0};
     uint8_t rx_buffer[16] = {0};
 
-    // Build SPI Read Command for RX FIFO
+    // Get FIFO user address (CiFIFOUA)
     tx_buffer[0] = 0x03; // Read command
-    tx_buffer[1] = (RX_FIFO_ADDRESS >> 8) & 0xFF; // High byte of FIFO address
-    tx_buffer[2] = RX_FIFO_ADDRESS & 0xFF;        // Low byte of FIFO address
+    tx_buffer[1] = (RX_FIFO_ADDRESS >> 8) & 0xFF; // High byte of FIFO user address
+    tx_buffer[2] = RX_FIFO_ADDRESS & 0xFF;        // Low byte of FIFO user address
 
-    // Perform SPI Transfer to Read RX FIFO
-    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 13) < 0) {
+    // Perform SPI Transfer
+    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 16) < 0) {
         printf("Failed to read RX FIFO.\n");
         return;
     }
 
-    // Check if RX FIFO is empty
-    if (rx_buffer[0] == 0) { // Adjust condition based on MCP2518FD status flags
-        printf("No messages in RX FIFO.\n");
-        return;
-    }
-
-    // Parse Received Data
+    // Parse message data (same as your existing implementation)
     uint32_t can_id = (rx_buffer[1] << 24) | (rx_buffer[2] << 16) | (rx_buffer[3] << 8) | rx_buffer[4];
     uint8_t dlc = rx_buffer[5];
     uint8_t data[8];
-    memcpy(data, &rx_buffer[6], 8); // Copy 8 bytes of data payload
+    memcpy(data, &rx_buffer[6], dlc);
 
-    // Print CAN Message
+    // Print the CAN message
     printf("Received CAN Message:\n");
     printf("CAN ID: 0x%08X\n", can_id);
     printf("DLC: %d\n", dlc);
@@ -233,4 +241,14 @@ void read_can_message(int spi_handle) {
         printf("0x%02X ", data[i]);
     }
     printf("\n");
+
+    // Acknowledge the read (update FIFO pointer)
+    tx_buffer[0] = 0x02; // Write command
+    tx_buffer[1] = (RX_FIFO_CONTROL_ADDRESS >> 8) & 0xFF;
+    tx_buffer[2] = RX_FIFO_CONTROL_ADDRESS & 0xFF;
+    tx_buffer[3] = 0x20; // UINC bit to update pointer
+    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 4) < 0) {
+        printf("Failed to update FIFO pointer.\n");
+        return;
+    }
 }
