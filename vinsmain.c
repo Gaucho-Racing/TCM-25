@@ -226,6 +226,9 @@ void read_can_message(int spi_handle) {
         return;
     }
 
+    // Debug raw data
+    debug_raw_fifo_data(rx_buffer, 16);
+
     // Parse message data (same as your existing implementation)
     uint32_t can_id = (rx_buffer[1] << 24) | (rx_buffer[2] << 16) | (rx_buffer[3] << 8) | rx_buffer[4];
     uint8_t dlc = rx_buffer[5];
