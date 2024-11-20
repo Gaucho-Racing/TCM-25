@@ -64,7 +64,7 @@ int main() {
 
     while (1) {
     read_can_message(SPI_init);
-    usleep(1000); // Optional delay to prevent excessive polling
+    usleep(500000); // Optional delay to prevent excessive polling
 }
 
     // Cleanup
