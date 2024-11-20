@@ -198,3 +198,35 @@ void acknowledge_fifo_read(int spi_handle) {
         printf("FIFO pointer updated successfully.\n");
     }
 }
+
+void verify_fifo_setup(int spi_handle) {
+    uint8_t tx_buffer[4] = {MCP2518FD_READ, (RX_FIFO_CONTROL_ADDRESS >> 8) & 0xFF, RX_FIFO_CONTROL_ADDRESS & 0xFF};
+    uint8_t rx_buffer[8] = {0};
+
+    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 8) < 0) {
+        printf("Failed to read FIFO configuration.\n");
+        return;
+    }
+
+    printf("FIFO Configuration:\n");
+    for (int i = 0; i < 8; i++) {
+        printf("0x%02X ", rx_buffer[i]);
+    }
+    printf("\n");
+}
+
+void verify_filter_mask_setup(int spi_handle) {
+    uint8_t tx_buffer[4] = {MCP2518FD_READ, (REG_CiFIFOCON >> 8) & 0xFF, REG_CiFIFOCON & 0xFF};
+    uint8_t rx_buffer[8] = {0};
+
+    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 8) < 0) {
+        printf("Failed to read filter or mask.\n");
+        return;
+    }
+
+    printf("Filter/Mask Configuration:\n");
+    for (int i = 0; i < 8; i++) {
+        printf("0x%02X ", rx_buffer[i]);
+    }
+    printf("\n");
+}
