@@ -4,8 +4,6 @@
 #include <string.h>
 #include <jetgpio.h>
 
-#include <unistd.h>
-
 #define SPI_BUS 1
 #define CS_PIN 24
 #define SPI_SPEED 5000000 // 5 MHz
