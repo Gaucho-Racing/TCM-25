@@ -17,90 +17,97 @@
 #define REG_CiFIFOSTA1 0x060
 #define REG_CiFIFOUA1 0x064
 
-int main(int argc, char *argv[])
-{
+// Helper function to send SPI commands
+int spiWrite(int spiHandle, uint16_t reg, uint8_t *data, size_t len) {
+    uint8_t tx[len + 3];
+    tx[0] = CMD_WRITE;
+    tx[1] = (reg >> 8) & 0xFF;
+    tx[2] = reg & 0xFF;
+    memcpy(&tx[3], data, len);
+
+    char rx[len + 3];
+    return spiXfer(spiHandle, tx, rx, len + 3);
+}
+
+int spiRead(int spiHandle, uint16_t reg, uint8_t *data, size_t len) {
+    uint8_t tx[len + 3];
+    tx[0] = CMD_READ;
+    tx[1] = (reg >> 8) & 0xFF;
+    tx[2] = reg & 0xFF;
+    memset(&tx[3], 0, len);
+
+    char rx[len + 3];
+    int result = spiXfer(spiHandle, tx, rx, len + 3);
+    if (result >= 0) {
+        memcpy(data, &rx[3], len);
+    }
+    return result;
+}
+
+int main(int argc, char *argv[]) {
     int Init;
     int SPI_init;
-    int SPI_stat;
-    char tx[16] = {0,}; // Adjusted size for larger SPI transactions
-    char rx[16] = {0,};
 
     Init = gpioInitialise();
-    if (Init < 0)
-    {
-        printf("Jetgpio initialisation failed. Error code: %d\n", Init);
+    if (Init < 0) {
+        printf("Jetgpio initialization failed. Error code: %d\n", Init);
         exit(Init);
     }
-    else
-    {
-        printf("Jetgpio initialisation OK. Return code: %d\n", Init);
-    }
+    printf("Jetgpio initialization OK. Return code: %d\n", Init);
 
     SPI_init = spiOpen(1, 10000000, 0, 0, 8, 1, 1);
-    if (SPI_init < 0)
-    {
-        printf("Port SPI2 opening failed. Error code: %d\n", SPI_init);
+    if (SPI_init < 0) {
+        printf("SPI port opening failed. Error code: %d\n", SPI_init);
         gpioTerminate();
         exit(SPI_init);
     }
-    else
-    {
-        printf("Port SPI2 opened OK. Return code: %d\n", SPI_init);
-    }
+    printf("SPI port opened OK. Return code: %d\n", SPI_init);
 
     // Reset MCP2518FD
-    tx[0] = CMD_RESET;
-    SPI_stat = spiXfer(SPI_init, tx, rx, 1);
-    if (SPI_stat < 0)
-    {
-        printf("SPI transfer failed during reset. Error code: %d\n", SPI_stat);
-        spiClose(SPI_init);
-        gpioTerminate();
-        exit(SPI_stat);
-    }
-    else
-    {
-        printf("MCP2518FD reset command sent.\n");
-    }
+    uint8_t resetCmd = CMD_RESET;
+    spiXfer(SPI_init, &resetCmd, NULL, 1);
     usleep(10000); // Wait for reset to complete
 
-    // Example: Write to a register (CiCON)
-    tx[0] = CMD_WRITE;
-    tx[1] = (REG_CiCON >> 8) & 0xFF; // High byte of register address
-    tx[2] = REG_CiCON & 0xFF;        // Low byte of register address
-    tx[3] = 0x80;                    // Set Configuration Mode
-    tx[4] = 0x00;                    // Clear other fields
-    tx[5] = 0x00;
-    tx[6] = 0x00;
-    SPI_stat = spiXfer(SPI_init, tx, rx, 7);
-    if (SPI_stat < 0)
-    {
-        printf("SPI transfer failed during register write. Error code: %d\n", SPI_stat);
-        spiClose(SPI_init);
-        gpioTerminate();
-        exit(SPI_stat);
-    }
-    else
-    {
-        printf("Register CiCON configured for Configuration mode.\n");
-    }
+    // Configure CAN (set Configuration mode and other settings)
+    uint8_t configMode[4] = {0x80, 0x00, 0x00, 0x00};
+    spiWrite(SPI_init, REG_CiCON, configMode, 4);
 
-    // Example: Read from a register (CiCON)
-    tx[0] = CMD_READ;
-    tx[1] = (REG_CiCON >> 8) & 0xFF;
-    tx[2] = REG_CiCON & 0xFF;
-    memset(&tx[3], 0, 4); // Clear remaining bytes for read
-    SPI_stat = spiXfer(SPI_init, tx, rx, 7);
-    if (SPI_stat < 0)
-    {
-        printf("SPI transfer failed during register read. Error code: %d\n", SPI_stat);
-        spiClose(SPI_init);
-        gpioTerminate();
-        exit(SPI_stat);
-    }
-    else
-    {
-        printf("Read CiCON Register: 0x%02X%02X%02X%02X\n", rx[3], rx[4], rx[5], rx[6]);
+    // Configure FIFO1 as RX FIFO
+    uint8_t fifocon1[4] = {0x00, 0x00, 0x00, 0x80}; // RXTSEN enabled
+    spiWrite(SPI_init, REG_CiFIFOCON1, fifocon1, 4);
+
+    // Set Normal Operation mode
+    uint8_t normalMode[4] = {0x00, 0x00, 0x00, 0x00};
+    spiWrite(SPI_init, REG_CiCON, normalMode, 4);
+
+    printf("MCP2518FD configured for normal operation. Listening for CAN messages...\n");
+
+    // Loop to receive messages
+    while (1) {
+        uint8_t fifoStatus[4];
+        spiRead(SPI_init, REG_CiFIFOSTA1, fifoStatus, 4);
+
+        if (fifoStatus[0] & 0x01) { // TFNRFNIF: FIFO not empty
+            uint8_t fifoAddr[4];
+            spiRead(SPI_init, REG_CiFIFOUA1, fifoAddr, 4);
+
+            uint8_t rxData[16];
+            spiRead(SPI_init, fifoAddr[0], rxData, 16);
+
+            uint32_t id = (rxData[1] << 3) | (rxData[2] >> 5); // Extract Standard ID
+            printf("Message ID: 0x%03X\n", id);
+            printf("Data: ");
+            for (int i = 0; i < 8; i++) {
+                printf("0x%02X ", rxData[4 + i]);
+            }
+            printf("\n");
+
+            // Increment FIFO to acknowledge read
+            uint8_t uincCmd[4] = {0x01, 0x00, 0x00, 0x00};
+            spiWrite(SPI_init, REG_CiFIFOCON1, uincCmd, 4);
+        }
+
+        usleep(1000); // Poll every 1 ms
     }
 
     // Close SPI port
@@ -110,5 +117,5 @@ int main(int argc, char *argv[])
     gpioTerminate();
 
     printf("Program completed successfully.\n");
-    exit(0);
+    return 0;
 }
