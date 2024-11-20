@@ -202,7 +202,7 @@ void read_can_message(int spi_handle) {
     uint8_t rx_buffer[16] = {0};
 
     // Build SPI Read Command for RX FIFO
-    tx_buffer[0] = 0x30; // Read command
+    tx_buffer[0] = 0x03; // Read command
     tx_buffer[1] = (RX_FIFO_ADDRESS >> 8) & 0xFF; // High byte of FIFO address
     tx_buffer[2] = RX_FIFO_ADDRESS & 0xFF;        // Low byte of FIFO address
 
