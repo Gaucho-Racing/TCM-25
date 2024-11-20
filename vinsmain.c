@@ -213,6 +213,15 @@ void setup_catch_all_filter(int spi_handle) {
     printf("Catch-all filter configured successfully.\n");
 }
 
+void debug_raw_fifo_data(uint8_t *rx_buffer, int length) {
+    printf("Raw RX FIFO Data:\n");
+    for (int i = 0; i < length; i++) {
+        printf("0x%02X ", rx_buffer[i]);
+    }
+    printf("\n");
+}
+
+
 void read_can_message(int spi_handle) {
     uint8_t tx_buffer[16] = {0};
     uint8_t rx_buffer[16] = {0};
