@@ -1,254 +1,203 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <string.h>
-#include <jetgpio.h>
+#include <JetsonGPIO.h>
+#include <iostream>
+#include <fstream>
+#include <chrono>
+#include <thread>
+#include <fcntl.h>
+#include <string>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <linux/spi/spidev.h>
+#include <cstring>
 
-#define SPI_BUS 1
-#define CS_PIN 24
-#define SPI_SPEED 5000000 // 5 MHz
-#define RX_FIFO_ADDRESS 0x400 // Example address for FIFO
-#define RX_FIFO_CONTROL_ADDRESS 0x480 // CiFIFOCON1 base address
-#define BUFFER_SIZE 64
+// Define GPIO pin numbers for CS and INT
+const int CS_PIN = 24; //connect to SPI_CS0, probably pin 24
+const int INT_PIN = 32; //connect to PIN 32
+#define SPI_BUS 0     
+#define SPI_DEVICE 0   
+#define SPI_SPEED 20000000 // MCP2518FD should be 20 Mhz
 
-int initialize_mcp2518fd(int spi_handle);
-void configure_baud_rate(int spi_handle);
-void read_can_message(int spi_handle);
-void setup_catch_all_filter(int spi_handle);
-void setup_rx_fifo(int spi_handle);
+int spi_fd;
+
+// map of CAN IDs to file names
+std::unordered_map<std::string, std::string> sensorFiles = {
+    //can id and file name
+    {"0x100102", "ecu.log"},
+    {"0x100103", "acu.log"},
+    {"0x100105", "dash_panel.log"},
+    {"0x100106", "steering_wheel.log"},
+    {"0x100107", "inverter1.log"},
+    {"0x100108", "inverter2_panel.log"},
+    {"0x10010C", "sam1_panel.log"}
+    {"0x10010D", "sam2_panel.log"}
+};
+
+//TODO: need to write a map of can ids to can message length
+
+void initGPIO() {
+    GPIO::setmode(GPIO::BCM);
+    GPIO::setup(CS_PIN, GPIO::OUT);
+    GPIO::setup(INT_PIN, GPIO::IN);
+}
+
+bool initSPI() {
+    std::string spi_device = "/dev/spidev" + std::to_string(SPI_BUS) + "." + std::to_string(SPI_DEVICE);
+    spi_fd = open(spi_device.c_str(), O_RDWR);
+    if (spi_fd < 0) {
+        std::cerr << "Failed to open SPI device: " << strerror(errno) << std::endl;
+        return false;
+    }
+
+    uint8_t mode = SPI_MODE_0;
+    uint8_t bits = 8;
+    uint32_t speed = SPI_SPEED;
+
+    // Set SPI mode
+    if (ioctl(spi_fd, SPI_IOC_WR_MODE, &mode) < 0) {
+        std::cerr << "Failed to set SPI mode: " << strerror(errno) << std::endl;
+        return false;
+    }
+
+    // Set bits per word
+    if (ioctl(spi_fd, SPI_IOC_WR_BITS_PER_WORD, &bits) < 0) {
+        std::cerr << "Failed to set SPI bits per word: " << strerror(errno) << std::endl;
+        return false;
+    }
+
+    // Set max speed (in Hz)
+    if (ioctl(spi_fd, SPI_IOC_WR_MAX_SPEED_HZ, &speed) < 0) {
+        std::cerr << "Failed to set SPI speed: " << strerror(errno) << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+// Receive function
+'''
+bool receive(unsigned long id, byte buf[]){
+        if(id >= canid && id <= canid){
+            int row = id-0xF0;
+            receiveTime = millis();
+            for(int i = 0; i < buffer_size; i++) data[row][i] = buf[i];
+        }
+        else{
+            return 0;
+        }
+        return 1;
+    }
+'''
+bool readCANFDData(std::string &data) {
+    const int id_read_size = 3;  // how many bytes for CAN ID?? prayge 24 bits
+    uint8_t id_buf[id_read_size] = {0};
+    
+    // Temp for CANID
+    struct spi_ioc_transfer spi_id = {};
+    spi_id.tx_buf = reinterpret_cast<unsigned long>(id_buf);
+    spi_id.rx_buf = reinterpret_cast<unsigned long>(id_buf);
+    spi_id.len = id_read_size;
+    spi_id.speed_hz = SPI_SPEED;
+    spi_id.bits_per_word = 8;
+    spi_id.cs_change = 0;
+
+    // Perform SPI to read CANID
+    if (ioctl(spi_fd, SPI_IOC_MESSAGE(1), &spi_id) < 0) {
+        std::cerr << "Failed to read CAN ID over SPI: " << strerror(errno) << std::endl;
+        return false;
+    }
+
+    // CANID to hex
+    char hex_id[9] = {0};
+    snprintf(hex_id, sizeof(hex_id), "%02X%02X%02X%02X", id_buf[0], id_buf[1], id_buf[2], id_buf[3]);
+    canID = hex_id;
+
+    // frame size for CANID
+    int frame_size = sensorFrameSizes.count(canID) ? sensorFrameSizes[canID] : 64;
+
+    //full frame
+    uint8_t tx[frame_size] = {0};
+    uint8_t rx[frame_size] = {0};
+
+    struct spi_ioc_transfer spi = {};
+    spi.tx_buf = reinterpret_cast<unsigned long>(tx);
+    spi.rx_buf = reinterpret_cast<unsigned long>(rx);
+    spi.len = frame_size;
+    spi.speed_hz = SPI_SPEED;
+    spi.bits_per_word = 8;
+    spi.cs_change = 0;
+
+    if (ioctl(spi_fd, SPI_IOC_MESSAGE(1), &spi) < 0) {
+        std::cerr << "Failed to read CAN FD data over SPI: " << strerror(errno) << std::endl;
+        return false;
+    }
+
+    data.clear();
+    for (int i = 0; i < frame_size; ++i) {
+        char hex[3];
+        snprintf(hex, sizeof(hex), "%02X", rx[i]);
+        data += hex;
+    }
+
+    return true;
+}
+
+void closeSPI() {
+    if (spi_fd >= 0) {
+        close(spi_fd);
+    }
+}
+
+void sendData(const std::string &data) {
+    //shift left 3 bytes and send data
+}
+
+std::string sortSensorData(const std::string &data) {
+    // this would return the first 4 characters of the can message as the can id
+    std::string canID = data.substr(0, 9); // idfk what can id length is
+
+    if (sensorFiles.find(canID) != sensorFiles.end()) {
+        return sensorFiles[canID];
+    } else {
+        // trash dump idfk
+        return "misc_sensor_data.log";
+    }
+}
+
+void logData(const std::string &data) {
+    std::ofstream logfile;
+    //Implement CAN ID sorting here and save each metric to its own file
+    logfile.open("test_CANFD.log", std::ios::app);
+    //logfile.open(sortSensorData(data), std::ios::app);
+
+    logfile << "Raw: " << data << std::endl;
+
+    // For decoding refer to the spreadsheet https://docs.google.com/spreadsheets/d/1XfJhhAQoDnuSuwluNitPsDWtuQu-bP-VbEGPmSo5ujA/edit?gid=68138563#gid=68138563
+    // if (decodeFunctions.find(canID) != decodeFunctions.end()) {
+    //     // data decode
+    //     std::string decodedData = decodeFunctions[canID](data);
+    //     logfile << decodedData << std::endl;
+    // } else {
+    //     // log raw data if error
+    //     logfile << "Raw: " << data << std::endl;
+    // }
+
+    logfile.close();
+}
 
 int main() {
-    int Init;
-    int SPI_init;
+    initGPIO();
 
-    // Initialize JetGPIO
-    Init = gpioInitialise();
-    if (Init < 0) {
-        printf("JetGPIO initialization failed. Error code: %d\n", Init);
-        exit(Init);
-    }
-    printf("JetGPIO initialized successfully.\n");
-
-    // Open SPI interface
-    SPI_init = spiOpen(SPI_BUS, SPI_SPEED, 0, 0, 8, 1, 1);
-    if (SPI_init < 0) {
-        printf("Failed to open SPI bus. Error code: %d\n", SPI_init);
-        gpioTerminate();
-        exit(SPI_init);
-    }
-    printf("SPI bus opened successfully.\n");
-
-    // Initialize MCP2518FD
-    if (initialize_mcp2518fd(SPI_init) != 0) {
-        printf("Failed to initialize MCP2518FD.\n");
-        spiClose(SPI_init);
-        gpioTerminate();
-        exit(-1);
+    while (true) {
+        std::string data;
+        if (GPIO::input(INT_PIN) == GPIO::HIGH) { // Check interrupt signal
+            if (readCANFDData(data)) {
+                logData(data);
+                //sendData(data);
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10)); 
     }
 
-    // Set up RX FIFO at 0x400
-    setup_rx_fifo(SPI_init);
-
-    // Set up a catch-all filter
-    setup_catch_all_filter(SPI_init);
-
-    // Switch to Normal mode
-    if (switch_to_normal_mode(SPI_init) != 0) {
-        printf("Failed to switch MCP2518FD to Normal mode.\n");
-        spiClose(SPI_init);
-        gpioTerminate();
-        exit(-1);
-    }
-
-    while (1) {
-    read_can_message(SPI_init);
-    usleep(1000); // Optional delay to prevent excessive polling
-}
-
-    // Cleanup
-    spiClose(SPI_init);
-    gpioTerminate();
-
+    GPIO::cleanup();
     return 0;
-}
-
-int initialize_mcp2518fd(int spi_handle) {
-    uint8_t tx_buffer[BUFFER_SIZE] = {0};
-    uint8_t rx_buffer[BUFFER_SIZE] = {0};
-
-    // Example: Set MCP2518FD to Configuration mode (REQOP = 0b100)
-    tx_buffer[0] = 0x02; // Write command to CiCON register
-    tx_buffer[1] = 0x00; // Address (CiCON register base)
-    tx_buffer[2] = 0x40; // Data: Configuration mode (REQOP=100)
-    tx_buffer[3] = 0x00;
-
-    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 4) < 0) {
-        printf("Failed to configure MCP2518FD mode.\n");
-        return -1;
-    }
-
-    printf("MCP2518FD configured to Configuration mode.\n");
-
-    // Configure baud rate
-    configure_baud_rate(spi_handle);
-
-    return 0;
-
-}
-
-int switch_to_normal_mode(int spi_handle) {
-    uint8_t tx_buffer[4] = {0x02, 0x00, 0x00, 0x00}; // Write to CiCON to set REQOP=000
-    uint8_t rx_buffer[4] = {0};
-
-    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 4) < 0) {
-        printf("Failed to switch to Normal mode.\n");
-        return -1;
-    }
-
-    // Optional: Verify OPMOD bits
-    // ...
-
-    printf("MCP2518FD switched to Normal mode.\n");
-    return 0;
-}
-
-void configure_baud_rate(int spi_handle) {
-    uint8_t tx_buffer[BUFFER_SIZE] = {0};
-    uint8_t rx_buffer[BUFFER_SIZE] = {0};
-
-    // Set CiNBTCFG register for 1 Mbps
-    // Example values:
-    // BRP = 0 (Prescaler = 1)
-    // TSEG1 = 6 (7 TQ)
-    // TSEG2 = 1 (2 TQ)
-    // SJW = 1 (2 TQ)
-    tx_buffer[0] = 0x02; // Write command
-    tx_buffer[1] = 0x04; // Address (CiNBTCFG register base)
-    tx_buffer[2] = 0x00; // BRP
-    tx_buffer[3] = 0x87; // TSEG1 = 6 (7 TQ), SJW = 1 (2 TQ)
-    tx_buffer[4] = 0x01; // TSEG2 = 1 (2 TQ)
-
-    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 5) < 0) {
-        printf("Failed to configure baud rate.\n");
-        exit(-1);
-    }
-    printf("Baud rate configured to 1 Mbps.\n");
-}
-
-void setup_rx_fifo(int spi_handle) {
-    uint8_t tx_buffer[12] = {0};
-    uint8_t rx_buffer[12] = {0};
-
-    // Set MCP2518FD to Configuration mode if not already
-    // This can be skipped if MCP2518FD is already in Configuration mode
-
-    // Step 1: Configure FIFO Control Register (CiFIFOCON1)
-    tx_buffer[0] = 0x02; // SPI Write Command
-    tx_buffer[1] = (RX_FIFO_CONTROL_ADDRESS >> 8) & 0xFF; // High byte of FIFO Control address
-    tx_buffer[2] = RX_FIFO_CONTROL_ADDRESS & 0xFF;        // Low byte of FIFO Control address
-
-    // Configure FIFO as RX FIFO
-    tx_buffer[3] = 0x00; // Configure as RX FIFO (TXEN = 0)
-    tx_buffer[4] = 0x00; // Control flags (e.g., timestamp enable)
-    tx_buffer[5] = (16 - 1); // FIFO size (number of messages)
-    tx_buffer[6] = 0x00; // FIFO size continued
-    tx_buffer[7] = 0x00; // Reserved
-
-    // Set the payload size and number of FIFO elements
-    // Example: Set payload size to 8 bytes and FIFO depth to 4 messages
-    tx_buffer[5] = (0x03 << 0); // FSIZE = 4 messages (FSIZE = n-1)
-    tx_buffer[6] = (0x00 << 4); // PLSIZE = 8 bytes (PLSIZE = 0x00)
-
-    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 8) < 0) {
-        printf("Failed to configure RX FIFO.\n");
-        return;
-    }
-
-    printf("RX FIFO configured at address 0x400.\n");
-}
-
-
-void setup_catch_all_filter(int spi_handle) {
-    uint8_t tx_buffer[8] = {0};
-    uint8_t rx_buffer[8] = {0};
-
-    // Step 1: Configure Filter Object (CiFLTOBJ0)
-    tx_buffer[0] = 0x02; // SPI Write Command
-    tx_buffer[1] = 0x1C; // High byte of Filter Object address
-    tx_buffer[2] = 0x00; // Low byte of Filter Object address
-    tx_buffer[3] = 0x00; // Match all CAN IDs
-    tx_buffer[4] = 0x00;
-    tx_buffer[5] = 0x00;
-    tx_buffer[6] = 0x00;
-    tx_buffer[7] = 0x00; // Reserved
-    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 8) < 0) {
-        printf("Failed to configure filter object.\n");
-        return;
-    }
-
-    // Step 2: Configure Filter Mask (CiMASK0)
-    tx_buffer[1] = 0x1C; // High byte of Filter Mask address
-    tx_buffer[2] = 0x04; // Low byte of Filter Mask address
-    tx_buffer[3] = 0x00; // Ignore all bits
-    tx_buffer[4] = 0x00;
-    tx_buffer[5] = 0x00;
-    tx_buffer[6] = 0x00;
-    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 8) < 0) {
-        printf("Failed to configure filter mask.\n");
-        return;
-    }
-
-    // Step 3: Enable Filter and Assign to RX FIFO (CiFLTCON0)
-    tx_buffer[1] = 0x1C; // High byte of Filter Control address
-    tx_buffer[2] = 0x08; // Low byte of Filter Control address
-    tx_buffer[3] = (1 << 5) | 0x01; // Assign to RX FIFO 1 and enable filter
-    tx_buffer[4] = 0x00; // Reserved
-    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 5) < 0) {
-        printf("Failed to enable filter.\n");
-        return;
-    }
-
-    printf("Catch-all filter configured successfully.\n");
-}
-
-void read_can_message(int spi_handle) {
-    uint8_t tx_buffer[16] = {0};
-    uint8_t rx_buffer[16] = {0};
-
-    // Get FIFO user address (CiFIFOUA)
-    tx_buffer[0] = 0x03; // Read command
-    tx_buffer[1] = (RX_FIFO_ADDRESS >> 8) & 0xFF; // High byte of FIFO user address
-    tx_buffer[2] = RX_FIFO_ADDRESS & 0xFF;        // Low byte of FIFO user address
-
-    // Perform SPI Transfer
-    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 16) < 0) {
-        printf("Failed to read RX FIFO.\n");
-        return;
-    }
-
-    // Parse message data (same as your existing implementation)
-    uint32_t can_id = (rx_buffer[1] << 24) | (rx_buffer[2] << 16) | (rx_buffer[3] << 8) | rx_buffer[4];
-    uint8_t dlc = rx_buffer[5];
-    uint8_t data[8];
-    memcpy(data, &rx_buffer[6], dlc);
-
-    // Print the CAN message
-    printf("Received CAN Message:\n");
-    printf("CAN ID: 0x%08X\n", can_id);
-    printf("DLC: %d\n", dlc);
-    printf("Data: ");
-    for (int i = 0; i < dlc; i++) {
-        printf("0x%02X ", data[i]);
-    }
-    printf("\n");
-
-    // Acknowledge the read (update FIFO pointer)
-    tx_buffer[0] = 0x02; // Write command
-    tx_buffer[1] = (RX_FIFO_CONTROL_ADDRESS >> 8) & 0xFF;
-    tx_buffer[2] = RX_FIFO_CONTROL_ADDRESS & 0xFF;
-    tx_buffer[3] = 0x20; // UINC bit to update pointer
-    if (spiXfer(spi_handle, (char *)tx_buffer, (char *)rx_buffer, 4) < 0) {
-        printf("Failed to update FIFO pointer.\n");
-        return;
-    }
 }
