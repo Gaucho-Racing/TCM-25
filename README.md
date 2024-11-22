@@ -7,13 +7,10 @@ MCP2516FD is a FD CAN controller that will be receiving all flow from FD CAN sen
 # Usage
 ```
 git clone https://github.com/Gaucho-Racing/TCM-Jelqing.git
-python main.py
+
+gcc -Wall -o main main.c -ljetgpio
+sudo ./main
 ```
-
-# Por favor
-If anyone knows what they're doing please reach out to Vin or Steven in the sensors channel and help us out. We haven't eaten in 10 days and Bharat won't let us out of his basement until we finish this. 
-
-we might be cooked.
 
 # Acknowledgements
 ![alt text](https://github.com/Gaucho-Racing/TCM-Jelqing/blob/main/image.png?raw=true)
