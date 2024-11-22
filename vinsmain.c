@@ -66,8 +66,8 @@ int main(int argc, char *argv[]) {
 
     // Reset MCP2518FD
     uint8_t resetCmd = CMD_RESET;
-    SPI_stat = spiXfer(SPI_init, &resetCmd, rx, 1);
-    print(rx[0])
+    int SPI_stat = spiXfer(SPI_init, &resetCmd, rx, 1);
+    printf("Response after reset: 0x%02X\n", rx[0]);
     usleep(10000); // Wait for reset to complete
     if (SPI_stat < 0)
       {
@@ -83,14 +83,13 @@ int main(int argc, char *argv[]) {
     // check for reset status/config mode status
     rx[0] = 0;
     uint8_t CiCON_Status[7];
-    printf(spiRead(SPI_init, REG_CiCON, CiCON_Status, 7));
-    printf(CiCON_Status[0]);
-    printf(CiCON_Status[1]);
-    printf(CiCON_Status[2]);
-    printf(CiCON_Status[3]);
-    printf(CiCON_Status[4]);
-    printf(CiCON_Status[5]);
-    printf(CiCON_Status[6]);
+    int res = spiRead(SPI_init, REG_CiCON, CiCON_Status, 7);
+    printf("spiRead returned: %d\n", res);
+    printf("CiCON_Status: ");
+    for (int i = 0; i < 7; i++) {
+        printf("0x%02X ", CiCON_Status[i]);
+    }
+    printf("\n");
 
     // Configure CAN (set Configuration mode and other settings)
     uint8_t configMode[4] = {0x80, 0x00, 0x00, 0x00};
