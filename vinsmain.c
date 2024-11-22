@@ -47,6 +47,7 @@ int spiRead(int spiHandle, uint16_t reg, uint8_t *data, size_t len) {
 int main(int argc, char *argv[]) {
     int Init;
     int SPI_init;
+    char rx[7] = {0,};
 
     Init = gpioInitialise();
     if (Init < 0) {
@@ -65,8 +66,31 @@ int main(int argc, char *argv[]) {
 
     // Reset MCP2518FD
     uint8_t resetCmd = CMD_RESET;
-    spiXfer(SPI_init, &resetCmd, NULL, 1);
+    SPI_stat = spiXfer(SPI_init, &resetCmd, rx, 1);
+    print(rx[0])
     usleep(10000); // Wait for reset to complete
+    if (SPI_stat < 0)
+      {
+	/* Spi transfer failed */
+	printf("Spi port transfer failed. Error code:  %d\n", SPI_stat);
+	exit(Init);
+      }
+    else
+      {
+	/* Spi transfer okay*/
+	printf("Spi port transfer OK. Return code:  %d\n", SPI_stat);
+      }
+    // check for reset status/config mode status
+    rx[0] = 0;
+    uint8_t CiCON_Status[7];
+    printf(spiRead(SPI_init, REG_CiCON, CiCON_Status, 7));
+    printf(CiCON_Status[0]);
+    printf(CiCON_Status[1]);
+    printf(CiCON_Status[2]);
+    printf(CiCON_Status[3]);
+    printf(CiCON_Status[4]);
+    printf(CiCON_Status[5]);
+    printf(CiCON_Status[6]);
 
     // Configure CAN (set Configuration mode and other settings)
     uint8_t configMode[4] = {0x80, 0x00, 0x00, 0x00};
