@@ -10,7 +10,7 @@ int main() {
     spi_handle = spiOpen(1, 5000000, 0, 0, 8, 0, 1);
 
     // Define read command for C1CON
-    uint8_t read_command[3] = {0x03, 0x00, 0x03};
+    uint8_t read_command[3] = {0x03, 0x03, 0x00};
     uint8_t response[4]; // Buffer for the 4-byte response
 
     // Perform SPI transfer (send command and receive response)
