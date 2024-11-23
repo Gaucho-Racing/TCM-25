@@ -10,8 +10,8 @@ int main(int argc, char *argv[])
   int Init;
   int SPI_init;
   int SPI_stat;
-  char tx[7] = {0,};
-  char rx[7] = {0,};
+  char tx[4] = {0,};
+  char rx[4] = {0,};
 
   Init = gpioInitialise();
   if (Init < 0)
@@ -47,13 +47,12 @@ int main(int argc, char *argv[])
       printf("Port SPI2 opened OK. Return code:  %d\n", SPI_init);
     }
 
-    tx[0] = 0x02;
-    tx[1] = 0x03;
-    tx[2] = 0x04;
 
     int i = 0;
     while (i<10){
-
+        tx[0] = 0x02;
+        tx[1] = 0x03;
+        tx[2] = 0x04;
         SPI_stat = spiXfer(SPI_init, tx, rx, 4);
         if (SPI_stat < 0)
             {
@@ -64,15 +63,31 @@ int main(int argc, char *argv[])
         else
             {
             /* SPI transfer okay*/
-            printf("SPI transfer OK. Return code:  %d\n", SPI_stat);
-            printf("rx[0]: %d, rx[1]: %d, rx[2]: %d\n", rx[0], rx[1], rx[2]);
+            printf("SPI write transfer OK. Return code:  %d\n", SPI_stat);
             }
-
-        printf("tx0:%x --> rx0:%x\n",tx[0], rx[0]);
-        printf("tx1:%x --> rx1:%x\n",tx[1], rx[1]);
-        printf("tx2:%x --> rx2:%x\n",tx[2], rx[2]);
+        sleep(1);
+        tx[0] = 0x03;
+        tx[1] = 0x03;
+        SPI_stat = spiXfer(SPI_init, tx, rx, 4);
+        if (SPI_stat < 0)
+            {
+            /* SPI transfer failed */
+            printf("SPI transfer failed. Error code:  %d\n", SPI_stat);
+            exit(SPI_stat);
+            }
+        else
+            {
+            /* SPI transfer okay*/
+            printf("SPI read transfer OK. Return code:  %d\n", SPI_stat);
+            printf("rx[0]: %d, rx[1]: %d, rx[2]: %d\n", rx[0], rx[1], rx[2], rx[3]);
+            }
         printf("rx3:%x\n", rx[3]);
         
+        rx[0] = 0;
+        rx[1] = 0;
+        rx[2] = 0;
+        rx[3] = 0;
+
         i++;
         usleep(1000000);
 
