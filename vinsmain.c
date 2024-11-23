@@ -51,9 +51,10 @@ int main(int argc, char *argv[])
     int i = 0;
     while (i<10){
         tx[0] = 0x02;
-        tx[1] = 0x03;
+        tx[1] = 0x00;
         tx[2] = 0x04;
-        SPI_stat = spiXfer(SPI_init, tx, rx, 3);
+        tx[3] = 0x00;
+        SPI_stat = spiXfer(SPI_init, tx, rx, 4);
         if (SPI_stat < 0)
             {
             /* SPI transfer failed */
@@ -67,7 +68,7 @@ int main(int argc, char *argv[])
             }
         sleep(1);
         tx[0] = 0x03;
-        tx[1] = 0x03;
+        tx[1] = 0x00;
         tx[2] = 0x00;
         tx[3] = 0x00;
         SPI_stat = spiXfer(SPI_init, tx, rx, 4);
