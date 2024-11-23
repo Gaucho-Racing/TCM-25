@@ -5,6 +5,43 @@
 #include <string.h>
 #include <jetgpio.h>
 
+/* CAN FD Controller */
+#define cREGADDR_CiCON 0x000
+#define cREGADDR_CiNBTCFG 0x004
+#define cREGADDR_CiDBTCFG 0x008
+#define cREGADDR_CiTDC 0x00C
+
+#define cREGADDR_CiTBC 0x010
+#define cREGADDR_CiTSCON 0x014
+#define cREGADDR_CiVEC 0x018
+#define cREGADDR_CiINT 0x01C
+#define cREGADDR_CiINTFLAG cREGADDR_CiINT
+#define cREGADDR_CiINTENABLE (cREGADDR_CiINT + 2)
+
+#define cREGADDR_CiRXIF 0x020
+#define cREGADDR_CiTXIF 0x024
+#define cREGADDR_CiRXOVIF 0x028
+#define cREGADDR_CiTXATIF 0x02C
+
+#define cREGADDR_CiTXREQ 0x030
+#define cREGADDR_CiTREC 0x034
+#define cREGADDR_CiBDIAG0 0x038
+#define cREGADDR_CiBDIAG1 0x03C
+
+#define cREGADDR_CiTEFCON 0x040
+#define cREGADDR_CiTEFSTA 0x044
+#define cREGADDR_CiTEFUA 0x048
+#define cREGADDR_CiFIFOBA 0x04C
+
+#define cREGADDR_CiFIFOCON 0x050
+#define cREGADDR_CiFIFOSTA 0x054
+#define cREGADDR_CiFIFOUA 0x058
+#define CiFIFO_OFFSET (3 * 4)
+
+#define cREGADDR_CiTXQCON 0x050
+#define cREGADDR_CiTXQSTA 0x054
+#define cREGADDR_CiTXQUA 0x058
+
 int main(int argc, char *argv[])
 {
   int Init;
@@ -53,8 +90,7 @@ int main(int argc, char *argv[])
         tx[0] = 0x02;
         tx[1] = 0x00;
         tx[2] = 0x04;
-        tx[3] = 0x00;
-        SPI_stat = spiXfer(SPI_init, tx, rx, 4);
+        SPI_stat = spiXfer(SPI_init, tx, rx, 3);
         if (SPI_stat < 0)
             {
             /* SPI transfer failed */
@@ -68,10 +104,8 @@ int main(int argc, char *argv[])
             }
         sleep(1);
         tx[0] = 0x03;
-        tx[1] = 0x00;
-        tx[2] = 0x00;
-        tx[3] = 0x00;
-        SPI_stat = spiXfer(SPI_init, tx, rx, 4);
+        tx[1] = 0x01;
+        SPI_stat = spiXfer(SPI_init, tx, rx, 3);
         if (SPI_stat < 0)
             {
             /* SPI transfer failed */
@@ -82,14 +116,13 @@ int main(int argc, char *argv[])
             {
             /* SPI transfer okay*/
             printf("SPI read transfer OK. Return code:  %d\n", SPI_stat);
-            printf("rx[0]: %d, rx[1]: %d, rx[2]: %d\n", rx[0], rx[1], rx[2], rx[3]);
+            printf("rx[0]: %d, rx[1]: %d, rx[2]: %d\n", rx[0], rx[1], rx[2]);
             }
-        printf("rx3:%x\n", rx[3]);
+        printf("rx3:%x\n", rx[2]);
         
         rx[0] = 0;
         rx[1] = 0;
         rx[2] = 0;
-        rx[3] = 0;
 
         i++;
         usleep(1000000);
