@@ -40,15 +40,10 @@ int main(int argc, char *argv[])
 
   SPI_init = spiOpen(1, 500000, 0, 10, 8, 0, 1);
 
-  tx[0] = 0x00;
-  tx[1] = 0x00;
-  SPI_stat = spiXfer(SPI_init, tx, rx, 2);
-  
   tx[0] = 0x30;
-  tx[1] = 0x00;
-  
-  SPI_stat = spiXfer(SPI_init, tx, NULL, 2);
-  SPI_stat &= spiXfer(SPI_init, NULL, rx, 1);
+  tx[1] = 0x02;
+  tx[2] = 0xFF;
+  SPI_stat = spiXfer(SPI_init, tx, rx, 3);
 
     if (SPI_stat < 0)
       {
@@ -64,7 +59,6 @@ int main(int argc, char *argv[])
 
   printf("tx0:%x\n", tx[0]);
   printf("tx1:%x\n", tx[1]);
-  printf("rx0:%x\n", rx[0]);
-  printf("rx1:%x\n", rx[1]);
+  printf("rx2:%x\n", rx[2]);
 
 }
