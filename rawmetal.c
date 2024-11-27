@@ -19,9 +19,9 @@ int main()
 {
 	int fd;
 	int ret;
-	uint8_t tx[2] = {0x20, 0x02}; // Data to send
+	uint8_t tx[2] = {0x00, 0x00}; // Data to send
 	uint8_t rx[2] = {0};          // Buffer to store received data
-	uint32_t speed = 20000000;    // 20 MHz
+	uint32_t speed = 2000000;    // 20 MHz
 	uint8_t bits = 8;             // 8 bits per word
 	uint32_t mode = SPI_MODE_0;   // SPI mode 0 (CPOL = 0, CPHA = 0)
 
