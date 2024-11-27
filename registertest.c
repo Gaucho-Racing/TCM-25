@@ -40,9 +40,9 @@ int main(int argc, char *argv[])
 
   SPI_init = spiOpen(1, 500000, 0, 10, 8, 0, 1);
 
-  tx[0] = 0x30;
-  tx[1] = 0x02;
-  tx[2] = 0xFF;
+  tx[0] = 0x30; //first 4 bits is command, last 4 bits is the beginning of 12 bit address.
+  tx[1] = 0x02; //last 8 bits of the address
+  tx[2] = 0xFF; //dummy byte
   SPI_stat = spiXfer(SPI_init, tx, rx, 3);
 
     if (SPI_stat < 0)
