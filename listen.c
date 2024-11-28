@@ -4,30 +4,23 @@
 #include <unistd.h>
 #include <jetgpio.h>
 
-// MCP2518FD SPI Constants
+// Constants
 #define MCP2518FD_SPI_PORT 1
-#define SPI_SPEED 10000000 // 10 MHz
+#define SPI_SPEED 10000000
 #define SPI_MODE 0
 
-// MCP2518FD Command Definitions
 #define READ_CMD 0x30
 #define WRITE_CMD 0x20
 
-// MCP2518FD Register Addresses
-#define C1CON 0x002          // CAN Control Register
-#define C1NBTCFG 0x004       // Nominal Bit Timing Configuration
-#define C1FIFOCON1 0x05C     // FIFO Configuration
-#define C1FIFOSTA1 0x060     // FIFO Status Register
-#define C1FIFOUA1 0x064      // FIFO User Address Register
-#define RX_FIFO_BASE 0x060   // RX FIFO Base Address
-#define RX_FIFO_SIZE 5       // RX FIFO Register Count
-#define C1INT 0x01C          // Interrupt Register
+#define C1FIFOSTA1 0x060 // FIFO Status Register
+#define C1FIFOUA1 0x064  // FIFO User Address Register
+#define RX_FIFO 0x030    // RX FIFO Base Address
+#define C1INT 0x01C      // Interrupt Register
 
-// Function Prototypes
+// Function prototypes
 void write_register(int spi_handle, uint16_t reg, uint8_t value);
 uint8_t read_register_byte(int spi_handle, uint16_t reg);
-void configure_listen_only(int spi_handle);
-void print_received_messages(int spi_handle);
+void read_can_message(int spi_handle);
 
 // Write a single byte to a register
 void write_register(int spi_handle, uint16_t reg, uint8_t value) {
@@ -37,86 +30,74 @@ void write_register(int spi_handle, uint16_t reg, uint8_t value) {
     tx[1] = reg & 0xFF;                     // Low 8 bits of address
     tx[2] = value;                          // Data byte to write
 
-    spiWrite(spi_handle, tx, sizeof(tx));
+    spiXfer(spi_handle, tx, NULL, sizeof(tx));
 }
 
 // Read a single byte from a register
 uint8_t read_register_byte(int spi_handle, uint16_t reg) {
-    uint8_t tx[3] = { 0 };
+    uint8_t tx[3] = { READ_CMD | ((reg >> 8) & 0x0F), reg & 0xFF, 0x00 };
     uint8_t rx[3] = { 0 };
 
-    tx[0] = READ_CMD | ((reg >> 8) & 0x0F); // Read command and high 4 bits of address
-    tx[1] = reg & 0xFF;                    // Low 8 bits of address
-
     spiXfer(spi_handle, tx, rx, sizeof(rx));
-
     return rx[2];
 }
 
-// Configure MCP2518FD for Listen-Only Mode
-void configure_listen_only(int spi_handle) {
-    // Reset MCP2518FD
-    write_register(spi_handle, 0x0F, 0x00);
-    usleep(100000); // Wait for reset
-
-    // Set Configuration Mode
-    write_register(spi_handle, C1CON, 0x04); // Set REQOP to Configuration Mode
-
-    // Set Nominal Bit Timing Configuration (1 Mbps)
-    write_register(spi_handle, C1NBTCFG + 0, 0x00); // BRP
-    write_register(spi_handle, C1NBTCFG + 1, 0x1C); // TSEG1
-    write_register(spi_handle, C1NBTCFG + 2, 0x03); // TSEG2
-    write_register(spi_handle, C1NBTCFG + 3, 0x01); // SJW
-
-    // Configure FIFO as RX
-    write_register(spi_handle, C1FIFOCON1, 0x07); // FIFO size 8 messages
-
-    // Set Listen-Only Mode
-    write_register(spi_handle, C1CON, 0x03); // Set REQOP to Listen-Only Mode
-}
-
-// Print received messages from FIFO
-void print_received_messages(int spi_handle) {
-    uint8_t fifo_data[RX_FIFO_SIZE];
-
+// Read a CAN message from RX FIFO
+void read_can_message(int spi_handle) {
+    uint8_t header[4]; // Message header
+    uint8_t payload[64]; // Maximum payload size for CAN FD
+    uint8_t dlc;
+    uint32_t id;
+    
     while (1) {
-        // Check for received message
         uint8_t fifo_status = read_register_byte(spi_handle, C1FIFOSTA1);
-        if (fifo_status & 0x01) { // Check RX Full flag
-            printf("Received CAN message:\n");
-            for (int i = 0; i < RX_FIFO_SIZE; i++) {
-                fifo_data[i] = read_register_byte(spi_handle, RX_FIFO_BASE + i);
-                printf("Register 0x%03X: 0x%02X\n", RX_FIFO_BASE + i, fifo_data[i]);
+        if (fifo_status & 0x01) { // RX Full flag
+            // Read the first 4 bytes (header)
+            for (int i = 0; i < 4; i++) {
+                header[i] = read_register_byte(spi_handle, RX_FIFO + i);
+            }
+
+            // Extract message ID and DLC
+            id = ((header[0] << 24) | (header[1] << 16) | (header[2] << 8) | header[3]);
+            dlc = header[3] & 0x0F; // Lower nibble contains DLC
+
+            printf("Message ID: 0x%08X, DLC: %u\n", id, dlc);
+
+            // Read the payload
+            for (int i = 0; i < dlc; i++) {
+                payload[i] = read_register_byte(spi_handle, RX_FIFO + 4 + i);
+            }
+
+            printf("Payload:");
+            for (int i = 0; i < dlc; i++) {
+                printf(" %02X", payload[i]);
             }
             printf("\n");
 
-            // Acknowledge that the message has been read (update FIFO UA)
+            // Acknowledge the message (update FIFO user address)
             write_register(spi_handle, C1FIFOUA1, 0x00);
         }
+
         usleep(1000); // Polling delay
     }
 }
 
-int main(int argc, char *argv[]) {
-    int Init;
-    int SPI_init;
-
-    Init = gpioInitialise();
+int main() {
+    int Init = gpioInitialise();
     if (Init < 0) {
-        printf("Jetgpio initialization failed. Error code: %d\n", Init);
+        printf("GPIO initialization failed.\n");
         return Init;
     }
-    printf("Jetgpio initialization OK. Return code: %d\n", Init);
 
-    SPI_init = spiOpen(MCP2518FD_SPI_PORT, SPI_SPEED, SPI_MODE, CS_PIN, 8, 0, 1);
-    if (SPI_init < 0) {
-        printf("SPI initialization failed. Error code: %d\n", SPI_init);
-        return SPI_init;
+    int spi_handle = spiOpen(MCP2518FD_SPI_PORT, SPI_SPEED, SPI_MODE, 0, 8, 0, 1);
+    if (spi_handle < 0) {
+        printf("SPI initialization failed.\n");
+        gpioTerminate();
+        return spi_handle;
     }
-    printf("SPI initialization OK. Return code: %d\n", SPI_init);
 
-    configure_listen_only(SPI_init);
-    print_received_messages(SPI_init);
+    printf("Listening for CAN messages...\n");
+    read_can_message(spi_handle);
 
     gpioTerminate();
     return 0;

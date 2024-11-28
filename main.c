@@ -37,7 +37,7 @@ void write_register(int spi_handle, uint16_t reg, uint8_t value) {
     tx[1] = reg & 0xFF;                     // Low 8 bits of address
     tx[2] = value;                          // Data byte to write
 
-    spiWrite(spi_handle, tx, sizeof(tx));
+    spiXfer(spi_handle, tx, NULL, sizeof(tx));
 }
 
 // Read a single byte from a register
@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
     }
     printf("Jetgpio initialization OK. Return code: %d\n", Init);
 
-    SPI_init = spiOpen(MCP2518FD_SPI_PORT, SPI_SPEED, SPI_MODE, CS_PIN, 8, 0, 1);
+    SPI_init = spiOpen(MCP2518FD_SPI_PORT, SPI_SPEED, SPI_MODE, 0, 8, 0, 1);
     if (SPI_init < 0) {
         printf("SPI initialization failed. Error code: %d\n", SPI_init);
         return SPI_init;
