@@ -17,17 +17,17 @@
 #define C1CON 0x002          // CAN Control Register
 #define C1NBTCFG 0x004       // Nominal Bit Timing Configuration
 #define C1FIFOCON1 0x05C     // FIFO Configuration
-#define C1FIFOSTA1 0x060     // FIFO Status Register Base
+#define C1FIFOSTA1 0x060     // FIFO Status Register
 #define C1FIFOUA1 0x064      // FIFO User Address Register
 #define RX_FIFO_BASE 0x060   // RX FIFO Base Address
-#define RX_FIFO_SIZE 5       // RX FIFO Register Count (0x060 to 0x064)
+#define RX_FIFO_SIZE 5       // RX FIFO Register Count
 #define C1INT 0x01C          // Interrupt Register
 
 // Function Prototypes
 void write_register(int spi_handle, uint16_t reg, uint8_t value);
 uint8_t read_register_byte(int spi_handle, uint16_t reg);
-void configure_canfd(int spi_handle);
-void read_fifo(int spi_handle);
+void configure_listen_only(int spi_handle);
+void print_received_messages(int spi_handle);
 
 // Write a single byte to a register
 void write_register(int spi_handle, uint16_t reg, uint8_t value) {
@@ -53,8 +53,8 @@ uint8_t read_register_byte(int spi_handle, uint16_t reg) {
     return rx[2];
 }
 
-// Configure MCP2518FD for CAN FD operation
-void configure_canfd(int spi_handle) {
+// Configure MCP2518FD for Listen-Only Mode
+void configure_listen_only(int spi_handle) {
     // Reset MCP2518FD
     write_register(spi_handle, 0x0F, 0x00);
     usleep(100000); // Wait for reset
@@ -71,29 +71,27 @@ void configure_canfd(int spi_handle) {
     // Configure FIFO as RX
     write_register(spi_handle, C1FIFOCON1, 0x07); // FIFO size 8 messages
 
-    // Configure FIFO registers 0x060-0x064 for RX FIFO
-    for (int i = 0; i < RX_FIFO_SIZE; i++) {
-        write_register(spi_handle, RX_FIFO_BASE + i, 0x00); // Initialize RX FIFO registers
-    }
-
-    // Set Normal Mode
-    write_register(spi_handle, C1CON, 0x00); // Set REQOP to Normal Mode
+    // Set Listen-Only Mode
+    write_register(spi_handle, C1CON, 0x03); // Set REQOP to Listen-Only Mode
 }
 
-// Read CAN messages from FIFO
-void read_fifo(int spi_handle) {
+// Print received messages from FIFO
+void print_received_messages(int spi_handle) {
     uint8_t fifo_data[RX_FIFO_SIZE];
 
     while (1) {
         // Check for received message
-        uint32_t int_status = read_register_byte(spi_handle, C1INT);
-        if (int_status & 0x01) { // RX interrupt
-            printf("Received CAN message from FIFO:\n");
+        uint8_t fifo_status = read_register_byte(spi_handle, C1FIFOSTA1);
+        if (fifo_status & 0x01) { // Check RX Full flag
+            printf("Received CAN message:\n");
             for (int i = 0; i < RX_FIFO_SIZE; i++) {
                 fifo_data[i] = read_register_byte(spi_handle, RX_FIFO_BASE + i);
                 printf("Register 0x%03X: 0x%02X\n", RX_FIFO_BASE + i, fifo_data[i]);
             }
             printf("\n");
+
+            // Acknowledge that the message has been read (update FIFO UA)
+            write_register(spi_handle, C1FIFOUA1, 0x00);
         }
         usleep(1000); // Polling delay
     }
@@ -117,8 +115,8 @@ int main(int argc, char *argv[]) {
     }
     printf("SPI initialization OK. Return code: %d\n", SPI_init);
 
-    configure_canfd(SPI_init);
-    read_fifo(SPI_init);
+    configure_listen_only(SPI_init);
+    print_received_messages(SPI_init);
 
     gpioTerminate();
     return 0;
