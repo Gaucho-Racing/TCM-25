@@ -47,8 +47,7 @@
 #include "drv_canfdspi_api.h"
 #include "drv_canfdspi_register.h"
 #include "drv_canfdspi_defines.h"
-#include "../spi/drv_spi.h"
-#include "jetgpio.h"
+#include "../jetgpio.h"
 #include <stdint.h>
 
 // *****************************************************************************
