@@ -1,13 +1,12 @@
 #!/bin/bash
 
-service_name=$(basename $(dirname $(dirname "$(readlink -f "$0")")))
+# Get the version from config.go
+VERSION=$(grep 'var Version =' config/config.go | cut -d '"' -f 2)
 
-# Extract version from config.go
-VERSION=$(grep 'Version: ' config/config.go | cut -d '"' -f 2)
-
+# Check if version was successfully extracted
 if [ -z "$VERSION" ]
   then
-    echo "Error: Unable to extract version from config/config.go"
+    echo "Error: Could not extract version from config/config.go"
     exit 1
 fi
 
@@ -17,6 +16,8 @@ if ! [ -x "$(command -v docker)" ]; then
   exit 1
 fi
 
-echo "Building container for $service_name v$VERSION"
+echo "Building container for GR25 TCM Monitor v$VERSION"
 # Build the docker container
-docker build -t gauchoracing/mp_$service_name:"$VERSION" -t gauchoracing/mp_$service_name:latest --platform linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6 --push --progress=plain .
+docker build -t gauchoracing/gr25_tcm_monitor:"$VERSION" -t gauchoracing/gr25_tcm_monitor:latest --platform linux/amd64,linux/arm64 --push --progress=plain .
+
+echo "Container deployed successfully"

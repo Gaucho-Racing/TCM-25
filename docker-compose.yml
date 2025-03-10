@@ -13,4 +13,4 @@ services:
       POSTGRES_PASSWORD: gr25
 
 volumes:
-  pgdata:
+  pgdata:xx

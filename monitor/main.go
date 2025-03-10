@@ -5,6 +5,7 @@ import (
 	"monitor/config"
 	"monitor/database"
 	"monitor/mqtt"
+	"monitor/service"
 	"monitor/utils"
 )
 
@@ -16,7 +17,7 @@ func main() {
 
 	database.InitializeDB()
 	mqtt.InitializeMQTT()
-	// service.SubscribeTopics()
+	service.InitializePings()
 
 	router := api.SetupRouter()
 	api.InitializeRoutes(router)

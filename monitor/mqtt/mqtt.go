@@ -10,6 +10,8 @@ import (
 
 var Client mq.Client
 
+var subscribedTopics = make(map[string]mq.MessageHandler)
+
 func InitializeMQTT() {
 	opts := mq.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("tcp://%s:%s", config.MQTTHost, config.MQTTPort))
@@ -26,8 +28,25 @@ func InitializeMQTT() {
 	}
 }
 
+func Subscribe(topic string, handler mq.MessageHandler) {
+	if token := Client.Subscribe(topic, 0, handler); token.Wait() && token.Error() != nil {
+		utils.SugarLogger.Errorln("[MQ] Failed to subscribe to topic:", topic, token.Error())
+		return
+	}
+	subscribedTopics[topic] = handler
+	utils.SugarLogger.Infoln("[MQ] Subscribed to topic:", topic)
+}
+
 func onConnect(client mq.Client) {
 	utils.SugarLogger.Infoln("[MQ] Connected to MQTT broker")
+
+	for topic, handler := range subscribedTopics {
+		if token := Client.Subscribe(topic, 0, handler); token.Wait() && token.Error() != nil {
+			utils.SugarLogger.Errorln("[MQ] Failed to resubscribe to topic:", topic, token.Error())
+			continue
+		}
+		utils.SugarLogger.Infoln("[MQ] Resubscribed to topic:", topic)
+	}
 }
 
 func onConnectionLost(client mq.Client, err error) {
