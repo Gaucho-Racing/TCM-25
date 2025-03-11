@@ -1,1 +1,0 @@
-/usr/bin/aarch64-linux-gnu-g++ -g -rdynamic CMakeFiles/simple_pwm.dir/simple_pwm.cpp.o -o simple_pwm  -Wl,-rpath,/home/tcm/hardware/build/JetsonGPIO ../libJetsonGPIO.so.1.2.5 

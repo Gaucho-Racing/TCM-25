@@ -1,1 +1,0 @@
-/usr/bin/aarch64-linux-gnu-g++ -g -rdynamic CMakeFiles/button_interrupt.dir/button_interrupt.cpp.o -o button_interrupt  -Wl,-rpath,/home/tcm/hardware/build/JetsonGPIO ../libJetsonGPIO.so.1.2.5 

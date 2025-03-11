@@ -1,1 +1,0 @@
-/usr/bin/aarch64-linux-gnu-g++ -g -rdynamic CMakeFiles/test_all_apis.dir/test_all_apis.cpp.o CMakeFiles/test_all_apis.dir/TestUtility.cpp.o -o test_all_apis  -Wl,-rpath,/home/tcm/hardware/build/JetsonGPIO ../libJetsonGPIO.so.1.2.5 

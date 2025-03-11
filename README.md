@@ -1,16 +1,10 @@
-# Jetson Orin Nano TCM
-This is the code to process incoming CAN data from our sensors and then forward it to mapache. 
+# GR25 Telecommunications Module
 
-# The Setup
-MCP2516FD is a FD CAN controller that will be receiving all flow from FD CAN sensor nodes. Interfaced through SPI, and processing data through a library to be sent to both Mapache via Singlestore database (MQTT) and the Orin Nano locally as a black box solution. 
+The Telecommunications Module (TCM) is responsible for processing and facilitating the real-time transmission of vehicle data to Mapache.
 
-# Usage
-```
-git clone https://github.com/Gaucho-Racing/TCM-Jelqing.git
+# Architecture
 
-gcc -Wall -o main main.c -ljetgpio
-sudo ./main
-```
+# Getting Started
 
 # Acknowledgements
 ![alt text](https://github.com/Gaucho-Racing/TCM-Jelqing/blob/main/image.png?raw=true)
