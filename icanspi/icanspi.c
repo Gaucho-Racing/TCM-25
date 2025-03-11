@@ -12,18 +12,17 @@ long unsigned int timestamp;
 volatile int temp = 0;
 int SPI_init;
 
-struct CAN_frame
-{
+struct CAN{
     union{
-        struct{
-            uint32_t id;
-            uint8_t bus;
-            uint8_t length;
-            uint8_t data[64];
-        }split;
-        uint8_t bytes[72];
+      uint16_t buffer[35];
+      struct{
+        uint32_t ID;
+        uint8_t bus;
+        uint8_t length;
+        uint8_t data[64];
+      }split;
     }combined;
-};
+  };
 
 void inthandler(int signum) 
 {
@@ -94,22 +93,28 @@ int setCB(int pin, int edge, int delay, long unsigned int *timestamp, void *call
 
 void calling()
 {
-    struct CAN_frame frame = {0,};
-    int SPI_stat;
-    char tx[72] = {0,};
-    char rx[72] = {0,};
-    // SPI_stat = spiTransfer(SPI_init, tx, frame.combined.bytes, 72);
-    SPI_stat = spiXfer(SPI_init, tx, rx, 72);
-    if(SPI_stat < 0){
-        printf("SPI transfer failed. Error code:  %d\n", SPI_stat);
-       
+    struct CAN frame = {0,};
+    char tx[8] = {0,};
+    char rx[8] = {0,};
+    spiXfer(SPI_init, tx, rx, 8);
+    //cases the chat into uint 8 
+    //this is used to get the length of the message
+    //temp var for tx
+    for(int i = 0; i < 8; i++){
+        printf("%02x ", rx[i]);
     }
-   temp++;
-   printf("%d\n", temp);
-   for(int i = 0; i < 72; i++){
-       printf("%x ", rx[i]);
-   }
     printf("\n");
+    char txTemp[64] = {0x69,};
+    uint8_t length = (uint8_t)(rx[5]);
+    printf("%d\n", length);
+    spiXfer(SPI_init, txTemp, (char *)frame.combined.split.data, length);
+
+    temp++;
+    printf("%d\n", temp);
+    for(int i = 0; i < length; i++){
+        printf("%x ", frame.combined.split.data[i]);
+    }
+        printf("\n");
     //printf("edge detected with EPOCH timestamp: %lu\n", timestamp);
     // terminating while loop
     //interrupt = 0;
@@ -131,7 +136,7 @@ int main(int argc, char *argv[])
         printf("Jetgpio initialisation OK. Return code:  %d\n", Init);
     }
 
-    SPI_init = startSPI(1, 500000, 0, 1);
+    SPI_init = startSPI(1, 500000, 0, 0);
     status = enableGPIO(29, JET_INPUT);
     status = setCB(29, FALLING_EDGE, 1000, &timestamp, &calling);
     printf("%d\n", status);
