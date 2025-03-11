@@ -1,1 +1,0 @@
-/usr/bin/aarch64-linux-gnu-g++ -g -rdynamic CMakeFiles/simple_out.dir/simple_out.cpp.o -o simple_out  -Wl,-rpath,/home/tcm/hardware/build/JetsonGPIO ../libJetsonGPIO.so.1.2.5 

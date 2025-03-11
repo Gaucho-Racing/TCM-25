@@ -1,0 +1,16 @@
+name: gr25_tcm
+
+services:
+  db:
+    image: postgres:17-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: mapache
+      POSTGRES_USER: gr25
+      POSTGRES_PASSWORD: gr25
+
+volumes:
+  pgdata:xx

@@ -1,1 +1,0 @@
-/usr/bin/c++ -g CMakeFiles/main.dir/main.cpp.o -o main  -Wl,-rpath,/home/tcm/hardware/JetsonGPIO JetsonGPIO/libJetsonGPIO.so.1.2.5 
