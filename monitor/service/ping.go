@@ -71,7 +71,8 @@ func PublishPing() {
 
 func CreatePing(ping int) {
 	result := database.DB.Create(&model.Ping{
-		Ping: ping,
+		VehicleID: config.VehicleID,
+		Ping:      ping,
 	})
 	if result.Error != nil {
 		utils.SugarLogger.Errorln("Failed to create ping:", result.Error)
