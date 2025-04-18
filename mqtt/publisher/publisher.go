@@ -14,15 +14,16 @@ import (
 func PublishData(nodeID, messageID string, data []byte) {
 	topic := fmt.Sprintf("gr25/gr25-main/%s/%s", nodeID, messageID)
 	timestamp := time.Now().UnixMilli()
-	synced := false
 
 	token := mqtt.Client.Publish(topic, 0, true, data)
 	if token.Wait() && token.Error() != nil {
 		log.Printf("MQTT publish error: %v", token.Error())
 	}
 
-	err := database.DB.Exec(`INSERT INTO ping (Vehicle_ID, Ping, Pong, Latency) VALUES (?, ?, ?, ?)`,
-		timestamp, topic, data, synced).Error
+	err := database.DB.Exec(`
+		INSERT INTO gr25 (timestamp, topic, data, synced)
+		VALUES (?, ?, ?, ?)`,
+		timestamp, topic, data, 0).Error
 	if err != nil {
 		log.Printf("DB insert error: %v", err)
 	}

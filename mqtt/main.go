@@ -6,7 +6,6 @@ import (
 	"mqtt/database"
 	"mqtt/mqtt"
 	"mqtt/publisher"
-	"mqtt/service"
 	"mqtt/utils"
 )
 
@@ -18,7 +17,7 @@ func main() {
 
 	database.InitializeDB()
 	mqtt.InitializeMQTT()
-	service.InitializePings()
+	//mqtt.StartSyncSubscriber(vehicleID)
 	publisher.StartUDPServer(5000)
 
 	router := api.SetupRouter()

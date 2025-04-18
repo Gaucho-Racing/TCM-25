@@ -26,7 +26,7 @@ var (
 
 func init() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("⚠️  Error loading .env file:", err)
+		log.Println("Error loading .env file:", err)
 	}
 
 	Version = "1.1.0"
