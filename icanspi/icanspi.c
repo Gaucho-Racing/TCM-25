@@ -9,8 +9,12 @@
 
 static volatile int interrupt = 1;
 long unsigned int timestamp;
-volatile int temp = 0;
 int SPI_init;
+volatile uint8_t jetOut[8] = {0x00};
+volatile bool jetOut_rdy = FALSE;
+volatile CAN_rdy = FALSE;
+volatile struct CAN frame = {0,};
+
 
 struct CAN{
     union{
@@ -93,31 +97,33 @@ int setCB(int pin, int edge, int delay, long unsigned int *timestamp, void *call
 
 void calling()
 {
-    struct CAN frame = {0,};
     char tx[8] = {0,};
     char rx[8] = {0,};
-    spiXfer(SPI_init, tx, rx, 8);
-    //cases the chat into uint 8 
-    //this is used to get the length of the message
-    //temp var for tx
-    for(int i = 0; i < 8; i++){
-        printf("%02x ", rx[i]);
+    //check to see if there is data availible
+    //if it is trasmit, otherwise transmit some fuck ass 0 val
+    //first spixfer is meant to get the params for the second spiXfer
+    if(jetOut_rdy){
+        spiXfer(SPI_init, jetOut, rx, 8);
+        jetOut_rdy = FALSE;
+    }else{
+        spiXfer(SPI_init, tx, rx, 8);
     }
-    printf("\n");
+    //txTemp is a temporary buffer for transmit that handles the maximum
+    // amount of data that can be sent via a can tx
+    //reason we do a rx and a tx is because the jetson spi 
+    //controller has no support for slave, and as such we do 
+    //a software slave implementation
     char txTemp[64] = {0x69,};
     uint8_t length = (uint8_t)(rx[5]);
-    printf("%d\n", length);
     spiXfer(SPI_init, txTemp, (char *)frame.combined.split.data, length);
+    //now the data is in frame CAN struct
+    //this then needs to be sent to the query.
+    //we do the sending in main in downtime.
+    CAN_rdy = true;
+}
 
-    temp++;
-    printf("%d\n", temp);
-    for(int i = 0; i < length; i++){
-        printf("%x ", frame.combined.split.data[i]);
-    }
-        printf("\n");
-    //printf("edge detected with EPOCH timestamp: %lu\n", timestamp);
-    // terminating while loop
-    //interrupt = 0;
+void sendCAN(struct CAN frame){
+    printf("TODO\n");
 }
 
 int main(int argc, char *argv[])
@@ -140,8 +146,26 @@ int main(int argc, char *argv[])
     status = enableGPIO(29, JET_INPUT);
     status = setCB(29, FALLING_EDGE, 1000, &timestamp, &calling);
     printf("%d\n", status);
+    //just a sleep function or the "main loop" in the main loop itslef lol
     while(interrupt){
-        sleep(1);
+        /*
+        Here we can adjust the jet out
+        and then on next interypt 
+        */
+        /*
+        take in data from socket then have it copied over to the tx buffer
+        */
+        uint8_t SocketParams[8] = {0x00};
+        //check if we have sent the data
+        if(!jetOut_rdy){
+            memcpy(jetOut, SocketParams, sizeof(uint8_t) * 8);
+            jetOut_rdy = TRUE;
+        }
+        if(CAN_rdy){
+            sendCAN(frame);
+            CAN_rdy = FALSE;
+        }
+        
     }
 
     spiClose(SPI_init);
