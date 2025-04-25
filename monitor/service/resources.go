@@ -1,13 +1,15 @@
 package service
 
 import (
+	"bytes"
 	"encoding/binary"
 	"fmt"
-	"math"
 	"monitor/config"
 	"monitor/mqtt"
+	"monitor/utils"
 	"os/exec"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -15,7 +17,7 @@ var CPU_util int        //Percent of CPU up-time in use
 var GPU_util int        //Percent of GPU up-time in use
 var memory_util int     //Percent of RAM space in use
 var storage_util int    //Percent of hard drive space in use
-var power_usage float32 //Average in mW (milliWatts)
+var power_usage float32 //Average in mW (milliWatts), converted to deciWatts in MQTT compression
 var CPU_temp float32    //CPU temp in Celsius
 var GPU_temp float32    //GPU temp in Celsius
 var stats_output []byte
@@ -40,9 +42,83 @@ func InitializeResourceQuery() {
 			} else {
 				fmt.Println("Error running tegrastats:\n", err)
 			}
-			time.Sleep(1 * time.Second)
+			PublishResources()
+			time.Sleep(5 * time.Second)
 		}
 	}()
+}
+
+/*
+This is a helper function that keeps an input value between a min and max (inclusive).
+This is used in PublishResources() to keep MQTT data at most 1 byte long.
+*/
+func clamp(val, min, max int) int {
+	if val < min {
+		return min
+	}
+	if val > max {
+		return max
+	}
+	return val
+}
+
+/*
+This function creates a topic string, grabs the current timestamp, and compiles the binary encoding of all collected resource data.
+Then, it publishes the payload to the MQTT topic.
+*/
+func PublishResources() {
+	topic := fmt.Sprintf("gr25/gr25-main/tcm/0x02A", config.VehicleID)
+
+	millis := time.Now().UnixMilli()
+	millisBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(millisBytes, uint64(millis))
+	uploadKey := []byte{0x01, 0x01}
+
+	data := make([]byte, 7)
+	data[0] = byte(clamp(CPU_util, 0, 255))
+	data[1] = byte(clamp(GPU_util, 0, 255))
+	data[2] = byte(clamp(memory_util, 0, 255))
+	data[3] = byte(clamp(storage_util, 0, 255))
+	data[4] = byte(clamp(int(power_usage/10), 0, 255)) //mW converted into deciWatts for compression
+	data[5] = byte(clamp(int(CPU_temp), 0, 255))
+	data[6] = byte(clamp(int(GPU_temp), 0, 255))
+
+	payload := append(millisBytes, uploadKey, data)
+
+	token := mqtt.Client.Publish(topic, 0, false, payload)
+	timeout := token.WaitTimeout(time.Second * 10)
+	if !timeout {
+		utils.SugarLogger.Errorln("Failed to publish ping: noreply 10s")
+	} else if token.Error() != nil {
+		utils.SugarLogger.Errorln("Failed to publish ping:", token.Error())
+	}
+}
+
+/*
+Queries the jetson nano for its hard drive utilization percentage and stores this in storage_util.
+*/
+func QueryStorageUtil() (string, error) {
+	cmd := exec.Command("df", "-h", "/")
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to run df: %v", err)
+	}
+
+	lines := strings.Split(out.String(), "\n")
+	if len(lines) < 2 {
+		return "", fmt.Errorf("unexpected df output: %v", out.String())
+	}
+
+	fields := strings.Fields(lines[1])
+	if len(fields) < 5 {
+		return "", fmt.Errorf("unexpected df line format: %v", lines[1])
+	}
+
+	storage_util = fields[4]
+
+	return nil
 }
 
 /*
@@ -167,34 +243,4 @@ func GetGPUTemp() error {
 	fmt.Sscanf(GPU_temp_match[1], "%d", &GPU_temp)
 
 	return nil
-}
-
-func PublishJetsonResources() {
-	topic := fmt.Sprintf("gr25/%s/jetson/resources", config.VehicleID)
-
-	// Create 24-byte buffer
-	payload := make([]byte, 24)
-
-	// Encode timestamp (8 bytes)
-	timestamp := time.Now().UnixMilli()
-	binary.BigEndian.PutUint64(payload[0:8], uint64(timestamp))
-
-	// Encode resource usage metrics (4 bytes: 1 each)
-	payload[8] = uint8(CPU_util)
-	payload[9] = uint8(GPU_util)
-	payload[10] = uint8(memory_util)
-	payload[11] = uint8(storage_util)
-
-	// Encode float32 values (12 bytes: 4 each)
-	binary.BigEndian.PutUint32(payload[12:16], math.Float32bits(power_usage))
-	binary.BigEndian.PutUint32(payload[16:20], math.Float32bits(CPU_temp))
-	binary.BigEndian.PutUint32(payload[20:24], math.Float32bits(GPU_temp))
-
-	// Publish to MQTT
-	token := mqtt.Client.Publish(topic, 0, false, payload)
-	if token.Wait() && token.Error() != nil {
-		fmt.Println("Failed to publish Jetson stats:", token.Error())
-	} else {
-		fmt.Println("Published Jetson stats successfully.")
-	}
 }
