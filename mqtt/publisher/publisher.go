@@ -11,9 +11,11 @@ import (
 	"time"
 )
 
-func PublishData(nodeID, messageID string, data []byte) {
+func PublishData(nodeID string, messageID string, targetID string, data []byte) {
 	topic := fmt.Sprintf("gr25/gr25-main/%s/%s", nodeID, messageID)
 	timestamp := time.Now().UnixMilli()
+	source := nodeID
+	target := targetID
 
 	token := mqtt.Client.Publish(topic, 0, true, data)
 	if token.Wait() && token.Error() != nil {
@@ -21,9 +23,9 @@ func PublishData(nodeID, messageID string, data []byte) {
 	}
 
 	err := database.DB.Exec(`
-		INSERT INTO gr25 (timestamp, topic, data, synced)
-		VALUES (?, ?, ?, ?)`,
-		timestamp, topic, data, 0).Error
+		INSERT INTO gr25 (timestamp, topic, data, synced, source, target)
+		VALUES (?, ?, ?, ?, ?, ?)`,
+		timestamp, topic, data, 0, source, target).Error
 	if err != nil {
 		log.Printf("DB insert error: %v", err)
 	}
@@ -61,11 +63,25 @@ func StartUDPServer(port int) {
 		}
 		log.Printf("Received %d bytes from %s", n, remoteAddr.String())
 
-		if n >= 8 {
-			nodeID := fmt.Sprintf("%02x%02x%02x%02x", buffer[0], buffer[1], buffer[2], buffer[3])
-			msgID := fmt.Sprintf("0x%02x%02x%02x%02x", buffer[4], buffer[5], buffer[6], buffer[7])
-			payload := buffer[8:n]
-			PublishData(nodeID, msgID, payload)
+		if n == 70 {
+			// Splits canID bytes into hex digits/4 bits
+			// canID := fmt.Sprintf("%x%x%x%x%x%x%x%x",
+			// 	(buffer[0]&0xF0)>>4, buffer[0]&0x0F,
+			// 	(buffer[1]&0xF0)>>4, buffer[1]&0x0F,
+			// 	(buffer[2]&0xF0)>>4, buffer[2]&0x0F,
+			// 	(buffer[3]&0xF0)>>4, buffer[3]&0x0F,
+			// )
+			grID := fmt.Sprintf("%x%x", buffer[0]&0x0F, (buffer[1]&0xF0)>>4) // 0th hex digit skipped
+			msgID := fmt.Sprintf("%x%x%x", buffer[1]&0x0F, (buffer[2]&0xF0)>>4, buffer[2]&0x0F)
+			targetID := fmt.Sprintf("%x%x", (buffer[3]&0xF0)>>4, buffer[3]&0x0F)
+			// bus := buffer[4]
+			// length := buffer[5]
+			payload := buffer[6:n]
+
+			PublishData(grID, msgID, targetID, payload)
+		} else {
+			log.Printf("Invalid packet size: expected 70 bytes, got %d", n)
 		}
+
 	}
 }
