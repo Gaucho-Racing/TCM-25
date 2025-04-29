@@ -2,13 +2,10 @@ package config
 
 import "github.com/fatih/color"
 
-var Banner = `
-`
-
 func PrintStartupBanner() {
 	banner := color.New(color.Bold, color.FgHiMagenta).PrintlnFunc()
-	banner(Banner)
+	banner("GR25 TCM MONITOR")
 	version := color.New(color.Bold, color.FgMagenta).PrintlnFunc()
-	version("Running GR25 TCM Monitor v" + Version + " [ENV: " + Env + "]")
+	version("Running v" + Version + " [ENV: " + Env + "]")
 	println()
 }
