@@ -12,7 +12,7 @@ RUN go mod download
 COPY . ./
 ARG TARGETOS
 ARG TARGETARCH
-RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /monitor
+RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /tcm
 
 ##
 ## Deploy
@@ -21,9 +21,9 @@ FROM alpine:3.21
 
 WORKDIR /
 
-COPY --from=builder /monitor /monitor
+COPY --from=builder /tcm /tcm
 
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 ENV TZ=America/Los_Angeles
 
-ENTRYPOINT ["/monitor"]
+ENTRYPOINT ["/tcm"]

@@ -20,3 +20,5 @@ var MQTTHost = os.Getenv("MQTT_HOST")
 var MQTTPort = os.Getenv("MQTT_PORT")
 var MQTTUser = os.Getenv("MQTT_USER")
 var MQTTPassword = os.Getenv("MQTT_PASSWORD")
+
+var CANPort = os.Getenv("CAN_PORT")

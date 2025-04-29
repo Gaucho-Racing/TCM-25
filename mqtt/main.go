@@ -5,7 +5,7 @@ import (
 	"mqtt/config"
 	"mqtt/database"
 	"mqtt/mqtt"
-	"mqtt/publisher"
+	"mqtt/service"
 	"mqtt/utils"
 )
 
@@ -16,10 +16,9 @@ func main() {
 
 	database.InitializeDB()
 	mqtt.InitializeMQTT()
-	//mqtt.StartSyncSubscriber(vehicleID)
-	publisher.StartUDPServer(5000)
+	go service.ListenCAN(config.CANPort)
 
-	router := api.SetupRouter()
+	router := api.SetupRouter()	
 	api.InitializeRoutes(router)
 	err := router.Run(":" + config.Port)
 	if err != nil {

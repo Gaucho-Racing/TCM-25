@@ -1,4 +1,4 @@
-package publisher
+package service
 
 import (
 	"bytes"
@@ -7,7 +7,9 @@ import (
 	"log"
 	"mqtt/database"
 	"mqtt/mqtt"
+	"mqtt/utils"
 	"net"
+	"strconv"
 	"time"
 )
 
@@ -23,7 +25,7 @@ func PublishData(nodeID string, messageID string, targetID string, data []byte) 
 	}
 
 	err := database.DB.Exec(`
-		INSERT INTO gr25 (timestamp, topic, data, synced, source, target)
+		INSERT INTO gr25 (timestamp, topic, data, synced, source_node, target_node)
 		VALUES (?, ?, ?, ?, ?, ?)`,
 		timestamp, topic, data, 0, source, target).Error
 	if err != nil {
@@ -43,14 +45,18 @@ func PublishData(nodeID string, messageID string, targetID string, data []byte) 
 	}
 }
 
-func StartUDPServer(port int) {
+func ListenCAN(port string) {
+	portInt, err := strconv.Atoi(port)
+	if err != nil {
+		utils.SugarLogger.Fatalf("Failed to convert port to int: %v", err)
+	}
 	addr := net.UDPAddr{
-		Port: port,
+		Port: portInt,
 		IP:   net.ParseIP("0.0.0.0"),
 	}
 	conn, err := net.ListenUDP("udp", &addr)
 	if err != nil {
-		log.Fatalf("Failed to start UDP server: %v", err)
+		utils.SugarLogger.Fatalf("Failed to start UDP server: %v", err)
 	}
 	defer conn.Close()
 
@@ -58,10 +64,10 @@ func StartUDPServer(port int) {
 	for {
 		n, remoteAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
-			log.Printf("Error reading from UDP: %v", err)
+			utils.SugarLogger.Errorf("Error reading from UDP: %v", err)
 			continue
 		}
-		log.Printf("Received %d bytes from %s", n, remoteAddr.String())
+		utils.SugarLogger.Infof("Received %d bytes from %s", n, remoteAddr.String())
 
 		if n == 70 {
 			// Splits canID bytes into hex digits/4 bits
@@ -80,7 +86,7 @@ func StartUDPServer(port int) {
 
 			PublishData(grID, msgID, targetID, payload)
 		} else {
-			log.Printf("Invalid packet size: expected 70 bytes, got %d", n)
+			utils.SugarLogger.Infof("Invalid packet size: expected 70 bytes, got %d", n)
 		}
 
 	}
