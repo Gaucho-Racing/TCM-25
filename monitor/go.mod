@@ -3,7 +3,6 @@ module monitor
 go 1.23.6
 
 require (
-	github.com/bk1031/rincon-go/v2 v2.0.0
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/gin-gonic/gin v1.10.0
 	go.uber.org/zap v1.27.0
@@ -21,7 +20,6 @@ require (
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.23.0 // indirect
-	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/goccy/go-json v0.10.4 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
@@ -53,8 +51,6 @@ require (
 
 require (
 	github.com/fatih/color v1.18.0
-	github.com/gaucho-racing/mapache-go v1.6.2
 	github.com/gin-contrib/cors v1.7.3
-	github.com/singlestore-labs/gorm-singlestore v1.2.0
 	go.uber.org/multierr v1.10.0 // indirect
 )
