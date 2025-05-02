@@ -42,7 +42,8 @@ func InitializeResourceQuery() {
 			} else {
 				fmt.Println("Error running tegrastats:\n", err)
 			}
-			PublishResources()
+			// PublishResources()
+			TestPrintValues()
 			time.Sleep(5 * time.Second)
 		}
 	}()
@@ -142,18 +143,39 @@ Statistics are formatted according to:
 https://docs.nvidia.com/jetson/archives/r35.1/DeveloperGuide/text/AT/JetsonLinuxDevelopmentTools/TegrastatsUtility.html
 */
 func QueryResourceStatistics() error {
-	tegrastats := exec.Command("tegrastats", "--interval", "1000", "--count", "1")
-	output, err := tegrastats.Output()
+	// Run tegrastats with --interval 1000 and --count 1
+	cmd := exec.Command("tegrastats", "--interval", "1000")
+
+	// Get the output pipe
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		fmt.Println("Error getting stdout pipe:", err)
 		return err
 	}
 
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		fmt.Println("Error starting command:", err)
+		return err
+	}
+
+	// Create a scanner to read the output
+	scanner := bufio.NewScanner(stdout)
+	if scanner.Scan() {
+		// Capture one line of output from tegrastats
+		stats_output = scanner.Text()
+	}
+
+	// Kill the tegrastats command after fetching the output
+	if err := cmd.Process.Kill(); err != nil {
+		fmt.Println("Error killing the command:", err)
+		return err
+	}
+	
 	err = QueryStorageUtil()
 	if err != nil {
 		return err
 	}
-
-	stats_output = output
 
 	return nil
 }
