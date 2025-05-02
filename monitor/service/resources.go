@@ -17,7 +17,7 @@ var CPU_util int        //Percent of CPU up-time in use
 var GPU_util int        //Percent of GPU up-time in use
 var memory_util int     //Percent of RAM space in use
 var storage_util int    //Percent of hard drive space in use
-var power_usage float32 //Average in mW (milliWatts), converted to deciWatts in MQTT compression
+var power_usage float32 //Average in mW (milliWatts), converted to centiWatts in MQTT compression
 var CPU_temp float32    //CPU temp in Celsius
 var GPU_temp float32    //GPU temp in Celsius
 var stats_output []byte
@@ -49,6 +49,19 @@ func InitializeResourceQuery() {
 }
 
 /*
+ */
+func TestPrintValues() {
+	fmt.Println("CPU Usage: %d%\nGPU Usage: %d%\nMemory Usage: %d%\nStorage Usage: %d%\nPower Usage: %g centiWatts\nCPU Temp: %g C\nGPU Temp: %g C\n",
+		CPU_util,
+		GPU_util,
+		memory_util,
+		storage_util,
+		power_usage,
+		CPU_temp,
+		GPU_temp)
+}
+
+/*
 This is a helper function that keeps an input value between a min and max (inclusive).
 This is used in PublishResources() to keep MQTT data at most 1 byte long.
 */
@@ -67,7 +80,7 @@ This function creates a topic string, grabs the current timestamp, and compiles 
 Then, it publishes the payload to the MQTT topic.
 */
 func PublishResources() {
-	topic := fmt.Sprintf("gr25/gr25-main/tcm/0x02A", config.VehicleID)
+	topic := fmt.Sprintf("gr25/%s/tcm/0x02A", config.VehicleID)
 
 	millis := time.Now().UnixMilli()
 	millisBytes := make([]byte, 8)
@@ -79,7 +92,7 @@ func PublishResources() {
 	data[1] = byte(clamp(GPU_util, 0, 255))
 	data[2] = byte(clamp(memory_util, 0, 255))
 	data[3] = byte(clamp(storage_util, 0, 255))
-	data[4] = byte(clamp(int(power_usage/10), 0, 255)) //mW converted into deciWatts for compression
+	data[4] = byte(clamp(int(power_usage/10), 0, 255)) //mW converted into centiWatts for compression
 	data[5] = byte(clamp(int(CPU_temp), 0, 255))
 	data[6] = byte(clamp(int(GPU_temp), 0, 255))
 
@@ -97,23 +110,23 @@ func PublishResources() {
 /*
 Queries the jetson nano for its hard drive utilization percentage and stores this in storage_util.
 */
-func QueryStorageUtil() (string, error) {
+func QueryStorageUtil() error {
 	cmd := exec.Command("df", "-h", "/")
 	var out bytes.Buffer
 	cmd.Stdout = &out
 
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to run df: %v", err)
+		return fmt.Errorf("Failed to run df: %v", err)
 	}
 
 	lines := strings.Split(out.String(), "\n")
 	if len(lines) < 2 {
-		return "", fmt.Errorf("unexpected df output: %v", out.String())
+		return fmt.Errorf("Unexpected df output: %v", out.String())
 	}
 
 	fields := strings.Fields(lines[1])
 	if len(fields) < 5 {
-		return "", fmt.Errorf("unexpected df line format: %v", lines[1])
+		return fmt.Errorf("Unexpected df line format: %v", lines[1])
 	}
 
 	storage_util = fields[4]
@@ -123,6 +136,7 @@ func QueryStorageUtil() (string, error) {
 
 /*
 Runs the shell command 'tegrastats' which outputs a large aggregate of CPU, GPU, and Memory statistics.
+Then, queries the storage utilization.
 
 Statistics are formatted according to:
 https://docs.nvidia.com/jetson/archives/r35.1/DeveloperGuide/text/AT/JetsonLinuxDevelopmentTools/TegrastatsUtility.html
@@ -130,6 +144,11 @@ https://docs.nvidia.com/jetson/archives/r35.1/DeveloperGuide/text/AT/JetsonLinux
 func QueryResourceStatistics() error {
 	tegrastats := exec.Command("tegrastats", "--interval", "1000", "--count", "1")
 	output, err := tegrastats.Output()
+	if err != nil {
+		return err
+	}
+
+	err = QueryStorageUtil()
 	if err != nil {
 		return err
 	}
@@ -204,7 +223,7 @@ func GetMemoryUtil() error {
 Parses the resource statistics for power usage statistics and saves to power_usage.
 */
 func GetPowerUsage() error {
-	re := regexp.MustCompile(`VDDR\? \d+/(\d+)`)
+	re := regexp.MustCompile(`VDD_IN \d+/(\d+)`)
 	power_usage_match := re.FindStringSubmatch(string(stats_output))
 	if len(power_usage_match) < 2 {
 		return fmt.Errorf("Power usage not found.")
@@ -219,7 +238,7 @@ func GetPowerUsage() error {
 Parses the resource statistics for CPU temperature in Celsius and saves to CPU_temp.
 */
 func GetCPUTemp() error {
-	re := regexp.MustCompile(`CPU@(\d+\.\d+)C`)
+	re := regexp.MustCompile(`cpu@(\d+\.\d+)C`)
 	CPU_temp_match := re.FindStringSubmatch(string(stats_output))
 	if len(CPU_temp_match) < 2 {
 		return fmt.Errorf("CPU temperature not found.")
@@ -234,10 +253,10 @@ func GetCPUTemp() error {
 Parses the resource statistics for GPU temperature in Celsius and saves to GPU_temp.
 */
 func GetGPUTemp() error {
-	re := regexp.MustCompile(`CPU@(\d+\.\d+)C`)
+	re := regexp.MustCompile(`gpu@(\d+\.\d+)C`)
 	GPU_temp_match := re.FindStringSubmatch(string(stats_output))
 	if len(GPU_temp_match) < 2 {
-		return fmt.Errorf("CPU temperature not found.")
+		return fmt.Errorf("GPU temperature not found.")
 	}
 
 	fmt.Sscanf(GPU_temp_match[1], "%d", &GPU_temp)
