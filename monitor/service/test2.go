@@ -18,7 +18,7 @@ var storage_util int    //Percent of hard drive space in use
 var power_usage float32 //Average in mW (milliWatts), converted to centiWatts in MQTT compression
 var CPU_temp float32    //CPU temp in Celsius
 var GPU_temp float32    //GPU temp in Celsius
-var stats_output []byte
+var stats_output string
 
 /*
 
@@ -140,7 +140,7 @@ func QueryResourceStatistics() error {
 	scanner := bufio.NewScanner(stdout)
 	if scanner.Scan() {
 		// Capture one line of output from tegrastats
-		stats_output = []byte(scanner.Text())
+		stats_output = scanner.Text()
 	}
 
 	// Kill the tegrastats command after fetching the output
@@ -213,7 +213,7 @@ func GetMemoryUtil() error {
 	fmt.Sscanf(memory_util_matches[1], "%d", &RAM_in_use)
 	fmt.Sscanf(memory_util_matches[2], "%d", &RAM_total)
 
-	memory_util = int((float32(RAM_in_use) / float32(RAM_total)) * 100)
+	memory_util = int((RAM_in_use / RAM_total) * 100)
 
 	return nil
 }
@@ -222,7 +222,7 @@ func GetMemoryUtil() error {
 Parses the resource statistics for power usage statistics and saves to power_usage.
 */
 func GetPowerUsage() error {
-	re := regexp.MustCompile(`VDD_IN (\d+)mW/`)
+	re := regexp.MustCompile(`VDD_IN \d+/(\d+)`)
 	power_usage_match := re.FindStringSubmatch(string(stats_output))
 	if len(power_usage_match) < 2 {
 		return fmt.Errorf("Power usage not found.")
