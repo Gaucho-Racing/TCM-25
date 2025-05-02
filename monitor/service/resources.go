@@ -1,4 +1,4 @@
-package service
+package main
 
 import (
 	"bytes"
@@ -24,7 +24,11 @@ var stats_output []byte
 
 /*
 
- */
+*/
+func main() {
+	InitializeResourceQuery()
+}
+ 
 /*
 Initializes necessary setup and threaded functions for querying and parsing Jetson resource information.
 */
@@ -44,7 +48,7 @@ func InitializeResourceQuery() {
 			}
 			// PublishResources()
 			TestPrintValues()
-			time.Sleep(5 * time.Second)
+			time.Sleep(2 * time.Second)
 		}
 	}()
 }
@@ -112,7 +116,10 @@ func PublishResources() {
 Queries the jetson nano for its hard drive utilization percentage and stores this in storage_util.
 */
 func QueryStorageUtil() error {
+	// Create the command
 	cmd := exec.Command("df", "-h", "/")
+
+	// Buffer for output
 	var out bytes.Buffer
 	cmd.Stdout = &out
 
@@ -130,9 +137,8 @@ func QueryStorageUtil() error {
 		return fmt.Errorf("Unexpected df line format: %v", lines[1])
 	}
 
-	storage_util = fields[4]
-
-	return nil
+	//fields[4] is the percentage of storage used
+	storage_util = strings.Trim(fields[4], "%")
 }
 
 /*
