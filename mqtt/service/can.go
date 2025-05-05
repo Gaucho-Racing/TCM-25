@@ -13,16 +13,56 @@ import (
 	"time"
 )
 
-func PublishData(nodeID string, messageID string, targetID string, data []byte) {
-	topic := fmt.Sprintf("gr25/gr25-main/%s/%s", nodeID, messageID)
-	timestamp := time.Now().UnixMilli()
-	source := nodeID
-	target := targetID
+var nodeIDMap = map[byte]string{
+	0x00: "DTI Inverter", // ???
+	0x01: "Debugger",
+	0x02: "ECU",
+	0x03: "ACU",
+	0x04: "TCM",
+	0x05: "Dash Panel",
+	0x06: "Steering Wheel",
+	0x07: "", // no name
+	0x08: "GR Inverter 1",
+	0x09: "GR Inverter 2",
+	0x0A: "GR Inverter 3",
+	0x0B: "GR Inverter 4",
+	0x0C: "Charging SDC",
+	0x0D: "Fan Controller 1",
+	0x0E: "Fan Controller 2",
+	0x0F: "Fan Controller 3",
+	0x10: "Fan Controller 4",
+	0x11: "Fan Controller 5",
+	0x12: "Fan Controller 6",
+	0x13: "Fan Controller 7",
+	0x14: "Fan Controller 8",
+	0x15: "SAM1",
+	0x16: "SAM2",
+	0x17: "SAM3",
+	0x18: "SAM4",
+	0x19: "SAM5",
+	0x1A: "SAM6",
+	0x1B: "SAM7",
+	0x1C: "SAM8",
+	0x1D: "SAM9",
+	0x1E: "SAM10",
+	0x1F: "SAM11",
+	0x20: "SAM12",
+	0x21: "SAM13",
+	0x22: "SAM14",
+	0x23: "SAM15",
+	0x24: "SAM16",
+	0x25: "SAM17",
+	0x26: "SAM18",
+	0x27: "SAM19",
+	0x28: "SAM20",
+	0x29: "LV DC-DC",
+}
 
-	token := mqtt.Client.Publish(topic, 0, true, data)
-	if token.Wait() && token.Error() != nil {
-		log.Printf("MQTT publish error: %v", token.Error())
-	}
+func PublishData(nodeID byte, messageID string, targetID byte, data []byte) {
+	source := nodeIDMap[nodeID]
+	target := nodeIDMap[targetID]
+	topic := fmt.Sprintf("gr25/gr25-main/%s/%s", source, messageID)
+	timestamp := time.Now().UnixMilli()
 
 	err := database.DB.Exec(`
 		INSERT INTO gr25 (timestamp, topic, data, synced, source_node, target_node)
@@ -37,7 +77,7 @@ func PublishData(nodeID string, messageID string, targetID string, data []byte) 
 	buf.Write([]byte{0x00, 0x00})
 	buf.Write(data)
 
-	token = mqtt.Client.Publish(topic, 0, true, buf.Bytes())
+	token := mqtt.Client.Publish(topic, 0, true, buf.Bytes())
 	if token.Wait() && token.Error() != nil {
 		log.Printf("MQTT re-publish error: %v", token.Error())
 	} else {
@@ -77,9 +117,9 @@ func ListenCAN(port string) {
 			// 	(buffer[2]&0xF0)>>4, buffer[2]&0x0F,
 			// 	(buffer[3]&0xF0)>>4, buffer[3]&0x0F,
 			// )
-			grID := fmt.Sprintf("%x%x", buffer[0]&0x0F, (buffer[1]&0xF0)>>4) // 0th hex digit skipped
-			msgID := fmt.Sprintf("%x%x%x", buffer[1]&0x0F, (buffer[2]&0xF0)>>4, buffer[2]&0x0F)
-			targetID := fmt.Sprintf("%x%x", (buffer[3]&0xF0)>>4, buffer[3]&0x0F)
+			grID := (buffer[0] & 0x0F) | ((buffer[1] & 0xF0) >> 4) // 0th hex digit skipped
+			msgID := fmt.Sprintf("0x%x%x%x", buffer[1]&0x0F, (buffer[2]&0xF0)>>4, buffer[2]&0x0F)
+			targetID := ((buffer[3] & 0xF0) >> 4) | (buffer[3] & 0x0F)
 			// bus := buffer[4]
 			// length := buffer[5]
 			payload := buffer[6:n]
