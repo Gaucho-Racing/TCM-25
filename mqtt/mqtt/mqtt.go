@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"mqtt/config"
 	"mqtt/utils"
+	"time"
 
 	mq "github.com/eclipse/paho.mqtt.golang"
 )
@@ -22,6 +23,8 @@ func InitializeMQTT() {
 	opts.SetOnConnectHandler(onConnect)
 	opts.SetConnectionLostHandler(onConnectionLost)
 	opts.SetReconnectingHandler(onReconnect)
+	opts.SetMaxReconnectInterval(30 * time.Second) // default: double after each failure
+
 	Client = mq.NewClient(opts)
 	if token := Client.Connect(); token.Wait() && token.Error() != nil {
 		utils.SugarLogger.Fatalln("[MQ] Failed to connect to MQTT", token.Error())

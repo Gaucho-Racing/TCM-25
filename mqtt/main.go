@@ -18,7 +18,7 @@ func main() {
 	mqtt.InitializeMQTT()
 	go service.ListenCAN(config.CANPort)
 
-	router := api.SetupRouter()	
+	router := api.SetupRouter()
 	api.InitializeRoutes(router)
 	err := router.Run(":" + config.Port)
 	if err != nil {

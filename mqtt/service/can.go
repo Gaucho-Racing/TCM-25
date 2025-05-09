@@ -77,11 +77,15 @@ func PublishData(nodeID byte, messageID string, targetID byte, data []byte) {
 	buf.Write([]byte{0x00, 0x00})
 	buf.Write(data)
 
-	token := mqtt.Client.Publish(topic, 0, true, buf.Bytes())
-	if token.Wait() && token.Error() != nil {
-		log.Printf("MQTT re-publish error: %v", token.Error())
+	token := mqtt.Client.Publish(topic, 1, true, buf.Bytes())
+	if token.WaitTimeout(10 * time.Second) {
+		if token.Error() != nil {
+			log.Printf("MQTT publish error: %v", token.Error())
+		} else {
+			fmt.Printf("Published to %s\n", topic)
+		}
 	} else {
-		fmt.Printf("Published to %s\n", topic)
+		log.Printf("Timed out")
 	}
 }
 
@@ -108,6 +112,7 @@ func ListenCAN(port string) {
 			continue
 		}
 		utils.SugarLogger.Infof("Received %d bytes from %s", n, remoteAddr.String())
+		// utils.SugarLogger.Infof("Received ... %d bytes from %s", buffer[64:n], remoteAddr.String())
 
 		if n == 70 {
 			// Splits canID bytes into hex digits/4 bits
@@ -117,6 +122,7 @@ func ListenCAN(port string) {
 			// 	(buffer[2]&0xF0)>>4, buffer[2]&0x0F,
 			// 	(buffer[3]&0xF0)>>4, buffer[3]&0x0F,
 			// )
+
 			grID := (buffer[0] & 0x0F) | ((buffer[1] & 0xF0) >> 4) // 0th hex digit skipped
 			msgID := fmt.Sprintf("0x%x%x%x", buffer[1]&0x0F, (buffer[2]&0xF0)>>4, buffer[2]&0x0F)
 			targetID := ((buffer[3] & 0xF0) >> 4) | (buffer[3] & 0x0F)
@@ -124,7 +130,7 @@ func ListenCAN(port string) {
 			// length := buffer[5]
 			payload := buffer[6:n]
 
-			PublishData(grID, msgID, targetID, payload)
+			go PublishData(grID, msgID, targetID, payload)
 		} else {
 			utils.SugarLogger.Infof("Invalid packet size: expected 70 bytes, got %d", n)
 		}
