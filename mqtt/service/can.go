@@ -65,32 +65,36 @@ func PublishData(canID string, nodeID byte, messageID string, targetID byte, dat
 	topic := fmt.Sprintf("gr25/gr25-main/%s/%s", source, messageID)
 	timestamp := time.Now().UnixMilli()
 
-	config.LatestCANID = canID
-	config.LatestCANTimestamp = timestamp
+	config.LatestCANMessages[canID] = timestamp
 
-	err := database.DB.Exec(`
-		INSERT INTO gr25 (timestamp, topic, data, synced, source_node, target_node)
-		VALUES (?, ?, ?, ?, ?, ?)`,
-		timestamp, topic, data, 0, source, target).Error
-	if err != nil {
-		log.Printf("DB insert error: %v", err)
-	}
+	go func() {
+		err := database.DB.Exec(`
+			INSERT INTO gr25 (timestamp, topic, data, synced, source_node, target_node)
+			VALUES (?, ?, ?, ?, ?, ?)`,
+			timestamp, topic, data, 0, source, target).Error
+		if err != nil {
+			log.Printf("DB insert error: %v", err)
+		}
+	}()
 
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, timestamp)
 	buf.Write([]byte{0x00, 0x00})
 	buf.Write(data)
 
-	token := mqtt.Client.Publish(topic, 1, true, buf.Bytes())
-	if token.WaitTimeout(10 * time.Second) {
-		if token.Error() != nil {
-			log.Printf("MQTT publish error: %v", token.Error())
+	go func() {
+		token := mqtt.Client.Publish(topic, 1, true, buf.Bytes())
+		if token.WaitTimeout(10 * time.Second) {
+			if token.Error() != nil {
+				log.Printf("MQTT publish error: %v", token.Error())
+			} else {
+				fmt.Printf("Published to %s\n", topic)
+			}
 		} else {
-			fmt.Printf("Published to %s\n", topic)
+			log.Printf("Timed out")
 		}
-	} else {
-		log.Printf("Timed out")
-	}
+	}()
+
 }
 
 func ListenCAN(port string) {
