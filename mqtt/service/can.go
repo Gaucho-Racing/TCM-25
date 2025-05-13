@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"log"
+	"mqtt/config"
 	"mqtt/database"
 	"mqtt/mqtt"
 	"mqtt/utils"
@@ -58,11 +59,14 @@ var nodeIDMap = map[byte]string{
 	0x29: "lv_dc_dc",
 }
 
-func PublishData(nodeID byte, messageID string, targetID byte, data []byte) {
+func PublishData(canID string, nodeID byte, messageID string, targetID byte, data []byte) {
 	source := nodeIDMap[nodeID]
 	target := nodeIDMap[targetID]
 	topic := fmt.Sprintf("gr25/gr25-main/%s/%s", source, messageID)
 	timestamp := time.Now().UnixMilli()
+
+	config.LatestCANID = canID
+	config.LatestCANTimestamp = timestamp
 
 	err := database.DB.Exec(`
 		INSERT INTO gr25 (timestamp, topic, data, synced, source_node, target_node)
@@ -116,21 +120,21 @@ func ListenCAN(port string) {
 
 		if n == 70 {
 			// Splits canID bytes into hex digits/4 bits
-			// canID := fmt.Sprintf("%x%x%x%x%x%x%x%x",
-			// 	(buffer[0]&0xF0)>>4, buffer[0]&0x0F,
-			// 	(buffer[1]&0xF0)>>4, buffer[1]&0x0F,
-			// 	(buffer[2]&0xF0)>>4, buffer[2]&0x0F,
-			// 	(buffer[3]&0xF0)>>4, buffer[3]&0x0F,
-			// )
+			canID := fmt.Sprintf("%x%x%x%x%x%x%x%x",
+				(buffer[0]&0xF0)>>4, buffer[0]&0x0F, // maybe remove the unused 0th hex digit
+				(buffer[1]&0xF0)>>4, buffer[1]&0x0F,
+				(buffer[2]&0xF0)>>4, buffer[2]&0x0F,
+				(buffer[3]&0xF0)>>4, buffer[3]&0x0F,
+			)
 
 			grID := (buffer[0] & 0x0F) | ((buffer[1] & 0xF0) >> 4) // 0th hex digit skipped
 			msgID := fmt.Sprintf("0x%x%x%x", buffer[1]&0x0F, (buffer[2]&0xF0)>>4, buffer[2]&0x0F)
 			targetID := ((buffer[3] & 0xF0) >> 4) | (buffer[3] & 0x0F)
-			// bus := buffer[4]
-			// length := buffer[5]
+			// bus := buffer[4] // unused
+			// length := buffer[5] // unused
 			payload := buffer[6:n]
 
-			go PublishData(grID, msgID, targetID, payload)
+			go PublishData(canID, grID, msgID, targetID, payload)
 		} else {
 			utils.SugarLogger.Infof("Invalid packet size: expected 70 bytes, got %d", n)
 		}

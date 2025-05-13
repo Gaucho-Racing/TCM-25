@@ -22,3 +22,6 @@ var MQTTUser = os.Getenv("MQTT_USER")
 var MQTTPassword = os.Getenv("MQTT_PASSWORD")
 
 var CANPort = os.Getenv("CAN_PORT")
+
+var LatestCANID string
+var LatestCANTimestamp int64

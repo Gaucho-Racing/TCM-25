@@ -24,6 +24,7 @@ func InitializeMQTT() {
 	opts.SetConnectionLostHandler(onConnectionLost)
 	opts.SetReconnectingHandler(onReconnect)
 	opts.SetMaxReconnectInterval(30 * time.Second) // default: double after each failure
+	opts.SetOrderMatters(false)                    // bruh
 
 	Client = mq.NewClient(opts)
 	if token := Client.Connect(); token.Wait() && token.Error() != nil {
