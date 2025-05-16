@@ -50,17 +50,11 @@ func InitializeResourceQuery() {
 
 /*
 Prints a display of stored variables to terminal.
-*/
+
 func TestPrintValues() {
-	fmt.Println("CPU Usage: %d%\nGPU Usage: %d%\nMemory Usage: %d%\nStorage Usage: %d%\nPower Usage: %g centiWatts\nCPU Temp: %g C\nGPU Temp: %g C\n",
-		CPU_util,
-		GPU_util,
-		memory_util,
-		storage_util,
-		power_usage,
-		CPU_temp,
-		GPU_temp)
+	fmt.Println("CPU Usage: %d%\nGPU Usage: %d%\nMemory Usage: %d%\nStorage Usage: %d%\nPower Usage: %g centiWatts\nCPU Temp: %g C\nGPU Temp: %g C\n", CPU_util, GPU_util, memory_util, storage_util, power_usage, CPU_temp, GPU_temp)
 }
+*/
 
 /*
 This is a helper function that keeps an input value between a min and max (inclusive).
