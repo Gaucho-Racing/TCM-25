@@ -1,6 +1,7 @@
-package main
+package service
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/binary"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"monitor/utils"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -22,13 +24,6 @@ var CPU_temp float32    //CPU temp in Celsius
 var GPU_temp float32    //GPU temp in Celsius
 var stats_output []byte
 
-/*
-
-*/
-func main() {
-	InitializeResourceQuery()
-}
- 
 /*
 Initializes necessary setup and threaded functions for querying and parsing Jetson resource information.
 */
@@ -46,15 +41,16 @@ func InitializeResourceQuery() {
 			} else {
 				fmt.Println("Error running tegrastats:\n", err)
 			}
-			// PublishResources()
-			TestPrintValues()
-			time.Sleep(2 * time.Second)
+			PublishResources()
+			// TestPrintValues()
+			time.Sleep(10 * time.Second)
 		}
 	}()
 }
 
 /*
- */
+Prints a display of stored variables to terminal.
+*/
 func TestPrintValues() {
 	fmt.Println("CPU Usage: %d%\nGPU Usage: %d%\nMemory Usage: %d%\nStorage Usage: %d%\nPower Usage: %g centiWatts\nCPU Temp: %g C\nGPU Temp: %g C\n",
 		CPU_util,
@@ -97,48 +93,20 @@ func PublishResources() {
 	data[1] = byte(clamp(GPU_util, 0, 255))
 	data[2] = byte(clamp(memory_util, 0, 255))
 	data[3] = byte(clamp(storage_util, 0, 255))
-	data[4] = byte(clamp(int(power_usage/10), 0, 255)) //mW converted into centiWatts for compression
+	data[4] = byte(clamp(int(power_usage/100), 0, 255)) //mW converted into deciWatts for compression (0 to 25.5 Watt range)
 	data[5] = byte(clamp(int(CPU_temp), 0, 255))
 	data[6] = byte(clamp(int(GPU_temp), 0, 255))
 
-	payload := append(millisBytes, uploadKey, data)
+	payload := append(millisBytes, uploadKey...)
+	payload = append(payload, data...)
 
 	token := mqtt.Client.Publish(topic, 0, false, payload)
 	timeout := token.WaitTimeout(time.Second * 10)
 	if !timeout {
-		utils.SugarLogger.Errorln("Failed to publish ping: noreply 10s")
+		utils.SugarLogger.Errorln("Failed to publish resources: noreply 10s")
 	} else if token.Error() != nil {
-		utils.SugarLogger.Errorln("Failed to publish ping:", token.Error())
+		utils.SugarLogger.Errorln("Failed to publish resources: ", token.Error())
 	}
-}
-
-/*
-Queries the jetson nano for its hard drive utilization percentage and stores this in storage_util.
-*/
-func QueryStorageUtil() error {
-	// Create the command
-	cmd := exec.Command("df", "-h", "/")
-
-	// Buffer for output
-	var out bytes.Buffer
-	cmd.Stdout = &out
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("Failed to run df: %v", err)
-	}
-
-	lines := strings.Split(out.String(), "\n")
-	if len(lines) < 2 {
-		return fmt.Errorf("Unexpected df output: %v", out.String())
-	}
-
-	fields := strings.Fields(lines[1])
-	if len(fields) < 5 {
-		return fmt.Errorf("Unexpected df line format: %v", lines[1])
-	}
-
-	//fields[4] is the percentage of storage used
-	storage_util = strings.Trim(fields[4], "%")
 }
 
 /*
@@ -155,13 +123,13 @@ func QueryResourceStatistics() error {
 	// Get the output pipe
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Println("Error getting stdout pipe:", err)
+		fmt.Println("Error getting stdout pipe for 'tegrastats' (resource util query):", err)
 		return err
 	}
 
 	// Start the command
 	if err := cmd.Start(); err != nil {
-		fmt.Println("Error starting command:", err)
+		fmt.Println("Error starting 'tegrastats' command (resource util query):", err)
 		return err
 	}
 
@@ -169,19 +137,50 @@ func QueryResourceStatistics() error {
 	scanner := bufio.NewScanner(stdout)
 	if scanner.Scan() {
 		// Capture one line of output from tegrastats
-		stats_output = scanner.Text()
+		stats_output = []byte(scanner.Text())
 	}
 
 	// Kill the tegrastats command after fetching the output
 	if err := cmd.Process.Kill(); err != nil {
-		fmt.Println("Error killing the command:", err)
+		fmt.Println("Error killing the 'tegrastats' (resource util query) command':", err)
 		return err
 	}
-	
+
 	err = QueryStorageUtil()
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+/*
+Queries the jetson nano for its hard drive utilization percentage and stores this in storage_util.
+*/
+func QueryStorageUtil() error {
+	// Create the command
+	cmd := exec.Command("df", "-h", "/")
+
+	// Buffer for output
+	var out bytes.Buffer
+	cmd.Stdout = &out
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("Failed to run 'df' to query storage utilization: %v", err)
+	}
+
+	lines := strings.Split(out.String(), "\n")
+	if len(lines) < 2 {
+		return fmt.Errorf("Unexpected 'df' (storage util query) output: %v", out.String())
+	}
+
+	fields := strings.Fields(lines[1])
+	if len(fields) < 5 {
+		return fmt.Errorf("Unexpected 'df' (storage util query) line format: %v", lines[1])
+	}
+
+	//fields[4] is the percentage of storage used
+	storage_util, _ = strconv.Atoi(strings.Trim(fields[4], "%"))
 
 	return nil
 }
@@ -242,7 +241,7 @@ func GetMemoryUtil() error {
 	fmt.Sscanf(memory_util_matches[1], "%d", &RAM_in_use)
 	fmt.Sscanf(memory_util_matches[2], "%d", &RAM_total)
 
-	memory_util = int((RAM_in_use / RAM_total) * 100)
+	memory_util = int((float32(RAM_in_use) / float32(RAM_total)) * 100)
 
 	return nil
 }
@@ -251,10 +250,10 @@ func GetMemoryUtil() error {
 Parses the resource statistics for power usage statistics and saves to power_usage.
 */
 func GetPowerUsage() error {
-	re := regexp.MustCompile(`VDD_IN \d+/(\d+)`)
+	re := regexp.MustCompile(`VDD_IN (\d+)mW/`)
 	power_usage_match := re.FindStringSubmatch(string(stats_output))
 	if len(power_usage_match) < 2 {
-		return fmt.Errorf("Power usage not found.")
+		return fmt.Errorf("Power usage (VDD_IN) not found.")
 	}
 
 	fmt.Sscanf(power_usage_match[1], "%d", &power_usage)
