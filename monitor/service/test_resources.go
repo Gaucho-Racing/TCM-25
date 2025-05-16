@@ -227,7 +227,7 @@ func GetPowerUsage() error {
 		return fmt.Errorf("Power usage not found.")
 	}
 
-	fmt.Sscanf(power_usage_match[1], "%d", &power_usage)
+	fmt.Sscanf(power_usage_match[1], "%f", &power_usage)
 
 	return nil
 }
@@ -242,7 +242,7 @@ func GetCPUTemp() error {
 		return fmt.Errorf("CPU temperature not found.")
 	}
 
-	fmt.Sscanf(CPU_temp_match[1], "%d", &CPU_temp)
+	fmt.Sscanf(CPU_temp_match[1], "%f", &CPU_temp)
 
 	return nil
 }
@@ -257,7 +257,7 @@ func GetGPUTemp() error {
 		return fmt.Errorf("GPU temperature not found.")
 	}
 
-	fmt.Sscanf(GPU_temp_match[1], "%d", &GPU_temp)
+	fmt.Sscanf(GPU_temp_match[1], "%f", &GPU_temp)
 
 	return nil
 }
