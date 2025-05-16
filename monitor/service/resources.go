@@ -19,7 +19,7 @@ var CPU_util int        //Percent of CPU up-time in use
 var GPU_util int        //Percent of GPU up-time in use
 var memory_util int     //Percent of RAM space in use
 var storage_util int    //Percent of hard drive space in use
-var power_usage float32 //Average in mW (milliWatts), converted to centiWatts in MQTT compression
+var power_usage float32 //Average in mW (milliWatts), converted to deciWatts for uint8 compression (saved as Watts to database)
 var CPU_temp float32    //CPU temp in Celsius
 var GPU_temp float32    //GPU temp in Celsius
 var stats_output []byte
