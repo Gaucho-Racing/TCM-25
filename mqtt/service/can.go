@@ -100,7 +100,7 @@ func PublishData(canID string, nodeID byte, messageID string, targetID byte, dat
 func ListenCAN(port string) {
 	portInt, err := strconv.Atoi(port)
 	if err != nil {
-		utils.SugarLogger.Fatalf("Failed to convert port to int: %v", err)
+		utils.SugarLogger.Fatalf("[CAN]Failed to convert port to int: %v", err)
 	}
 	addr := net.UDPAddr{
 		Port: portInt,
@@ -108,7 +108,7 @@ func ListenCAN(port string) {
 	}
 	conn, err := net.ListenUDP("udp", &addr)
 	if err != nil {
-		utils.SugarLogger.Fatalf("Failed to start UDP server: %v", err)
+		utils.SugarLogger.Fatalf("[CAN] Failed to create UDP connection: %v", err)
 	}
 	defer conn.Close()
 
@@ -116,10 +116,10 @@ func ListenCAN(port string) {
 	for {
 		n, remoteAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
-			utils.SugarLogger.Errorf("Error reading from UDP: %v", err)
+			utils.SugarLogger.Errorf("[CAN] Error reading from UDP: %v", err)
 			continue
 		}
-		utils.SugarLogger.Infof("Received %d bytes from %s", n, remoteAddr.String())
+		utils.SugarLogger.Infof("[CAN] Received %d bytes from %s", n, remoteAddr.String())
 		// utils.SugarLogger.Infof("Received ... %d bytes from %s", buffer[64:n], remoteAddr.String())
 
 		if n == 70 {
@@ -140,7 +140,7 @@ func ListenCAN(port string) {
 
 			go PublishData(canID, grID, msgID, targetID, payload)
 		} else {
-			utils.SugarLogger.Infof("Invalid packet size: expected 70 bytes, got %d", n)
+			utils.SugarLogger.Infof("[CAN] Invalid packet size: expected 70 bytes, got %d", n)
 		}
 
 	}
