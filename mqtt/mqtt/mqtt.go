@@ -2,8 +2,9 @@ package mqtt
 
 import (
 	"fmt"
-	"monitor/config"
-	"monitor/utils"
+	"mqtt/config"
+	"mqtt/utils"
+	"time"
 
 	mq "github.com/eclipse/paho.mqtt.golang"
 )
@@ -18,10 +19,13 @@ func InitializeMQTT() {
 	opts.SetUsername(config.MQTTUser)
 	opts.SetPassword(config.MQTTPassword)
 	opts.SetAutoReconnect(true)
-	opts.SetClientID(fmt.Sprintf("gr25-tcm-monitor-%s", config.Env))
+	opts.SetClientID(fmt.Sprintf("gr25-tcm-mqtt-%06d", time.Now().UnixNano()%1000000))
 	opts.SetOnConnectHandler(onConnect)
 	opts.SetConnectionLostHandler(onConnectionLost)
 	opts.SetReconnectingHandler(onReconnect)
+	opts.SetMaxReconnectInterval(30 * time.Second) // default: double after each failure
+	opts.SetOrderMatters(false)                    // bruh
+
 	Client = mq.NewClient(opts)
 	if token := Client.Connect(); token.Wait() && token.Error() != nil {
 		utils.SugarLogger.Fatalln("[MQ] Failed to connect to MQTT", token.Error())
