@@ -12,7 +12,6 @@ import (
 func main() {
 	config.PrintStartupBanner()
 	utils.InitializeLogger()
-	utils.VerifyConfig()
 	defer utils.Logger.Sync()
 
 	database.InitializeDB()

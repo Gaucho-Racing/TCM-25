@@ -1,23 +1,19 @@
-#!/bin/bash
+# check if go.mod exists in current directory
+if [ ! -f go.mod ]; then
+    echo "go.mod not found"
+    echo "Please make sure you are in the root service directory"
+    exit 1
+fi
 
-# Exit on error
-set -e
+# check if .env exists in current directory
+if [ ! -f .env ]; then
+    echo ".env not found"
+    echo "Please make sure the .env file is present in the current directory"
+    exit 1
+fi
 
-# Create build directory if it doesn't exist
-mkdir -p build
 
-# Navigate to build directory
-cd build
-
-# Configure with CMake
-cmake ..
-
-# Build the project
-make
-
-# Run the application
-echo -e "\n--- Running the application ---\n"
-./main
-
-# Return to original directory
-cd ..
+set -a
+. .env
+go get .
+go run main.go

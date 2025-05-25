@@ -4,12 +4,13 @@ import (
 	"os"
 )
 
-var Version = "1.2.0"
+var Version = "1.1.0"
 var Env = os.Getenv("ENV")
 var Port = os.Getenv("PORT")
 
 var VehicleID = os.Getenv("VEHICLE_ID")
-var UploadKey = []byte{0x01, 0x01}
+var VehicleUploadKeyString = os.Getenv("VEHICLE_UPLOAD_KEY")
+var VehicleUploadKey uint16
 
 var DatabaseHost = os.Getenv("DATABASE_HOST")
 var DatabasePort = os.Getenv("DATABASE_PORT")
@@ -22,4 +23,6 @@ var MQTTPort = os.Getenv("MQTT_PORT")
 var MQTTUser = os.Getenv("MQTT_USER")
 var MQTTPassword = os.Getenv("MQTT_PASSWORD")
 
-var PingInterval = os.Getenv("PING_INTERVAL")
+var CANPort = os.Getenv("CAN_PORT")
+
+var LastSucessfulPublish = make(map[uint32]int64)
