@@ -19,7 +19,7 @@ func InitializeMQTT() {
 	opts.SetUsername(config.MQTTUser)
 	opts.SetPassword(config.MQTTPassword)
 	opts.SetAutoReconnect(true)
-	opts.SetClientID(fmt.Sprintf("gr25-tcm-mqtt-%s", config.Env))
+	opts.SetClientID(fmt.Sprintf("gr25-tcm-mqtt-%06d", time.Now().UnixNano()%1000000))
 	opts.SetOnConnectHandler(onConnect)
 	opts.SetConnectionLostHandler(onConnectionLost)
 	opts.SetReconnectingHandler(onReconnect)

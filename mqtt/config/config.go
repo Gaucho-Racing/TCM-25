@@ -10,7 +10,7 @@ var Port = os.Getenv("PORT")
 
 var VehicleID = os.Getenv("VEHICLE_ID")
 var VehicleUploadKeyString = os.Getenv("VEHICLE_UPLOAD_KEY")
-var VehicleUploadKey = 0
+var VehicleUploadKey uint16
 
 var DatabaseHost = os.Getenv("DATABASE_HOST")
 var DatabasePort = os.Getenv("DATABASE_PORT")
@@ -25,4 +25,4 @@ var MQTTPassword = os.Getenv("MQTT_PASSWORD")
 
 var CANPort = os.Getenv("CAN_PORT")
 
-var LatestCANMessages = make(map[string]int64)
+var LastSucessfulPublish = make(map[uint32]int64)

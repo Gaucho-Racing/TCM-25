@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"log"
 	"mqtt/config"
-	"mqtt/database"
 	"mqtt/mqtt"
 	"mqtt/utils"
 	"net"
@@ -59,42 +57,57 @@ var nodeIDMap = map[byte]string{
 	0x29: "lv_dc_dc",
 }
 
-func PublishData(canID string, nodeID byte, messageID string, targetID byte, data []byte) {
+func PublishData(canID uint32, nodeID uint8, messageID uint16, targetID uint8, data []byte) {
 	source := nodeIDMap[nodeID]
 	target := nodeIDMap[targetID]
-	topic := fmt.Sprintf("gr25/gr25-main/%s/%s", source, messageID)
-	timestamp := time.Now().UnixMilli()
 
-	config.LatestCANMessages[canID] = timestamp
+	if source == "" {
+		source = "unknown"
+	}
+	if target == "" {
+		target = "unknown"
+	}
 
-	go func() {
-		err := database.DB.Exec(`
-			INSERT INTO gr25 (timestamp, topic, data, synced, source_node, target_node)
-			VALUES (?, ?, ?, ?, ?, ?)`,
-			timestamp, topic, data, 0, source, target).Error
-		if err != nil {
-			log.Printf("DB insert error: %v", err)
-		}
-	}()
+	topic := fmt.Sprintf("gr25/%s/%s/0x%03x", config.VehicleID, source, messageID)
+	timestamp := uint64(time.Now().UnixMilli())
+
+	// GR25Message := model.Gr25Message{
+	// 	Timestamp:  int(timestamp),
+	// 	Topic:      topic,
+	// 	Data:       data,
+	// 	Synced:     0,
+	// 	SourceNode: source,
+	// 	TargetNode: target,
+	// }
+	// utils.SugarLogger.Infof("[CAN] Publishing data to %s: %v", topic, GR25Message)
+
+	// go func() {
+	// 	err := database.DB.Exec(`
+	// 		INSERT INTO gr25 (timestamp, topic, data, synced, source_node, target_node)
+	// 		VALUES (?, ?, ?, ?, ?, ?)`,
+	// 		timestamp, topic, data, 0, source, target).Error
+	// 	if err != nil {
+	// 		log.Printf("DB insert error: %v", err)
+	// 	}
+	// }()
 
 	buf := new(bytes.Buffer)
 	binary.Write(buf, binary.BigEndian, timestamp)
-	buf.Write([]byte{0x00, 0x00})
+	binary.Write(buf, binary.BigEndian, config.VehicleUploadKey)
 	buf.Write(data)
 
 	go func() {
 		token := mqtt.Client.Publish(topic, 1, true, buf.Bytes())
 		if token.WaitTimeout(10 * time.Second) {
 			if token.Error() != nil {
-				log.Printf("MQTT publish error: %v", token.Error())
+				utils.SugarLogger.Errorf("[MQTT] Failed to publish to %s: %v", topic, token.Error())
 			} else {
-				fmt.Printf("Published to %s\n", topic)
+				utils.SugarLogger.Infof("[MQTT] Published to %s", topic)
 			}
 		} else {
-			log.Printf("Timed out")
+			utils.SugarLogger.Errorf("[MQTT] Failed to publish to %s: %v", topic, token.Error())
 		}
 	}()
-
 }
 
 func ListenCAN(port string) {
@@ -112,8 +125,8 @@ func ListenCAN(port string) {
 	}
 	defer conn.Close()
 
-	buffer := make([]byte, 1024)
 	for {
+		buffer := make([]byte, 1024)
 		n, remoteAddr, err := conn.ReadFromUDP(buffer)
 		if err != nil {
 			utils.SugarLogger.Errorf("[CAN] Error reading from UDP: %v", err)
@@ -122,26 +135,35 @@ func ListenCAN(port string) {
 		utils.SugarLogger.Infof("[CAN] Received %d bytes from %s", n, remoteAddr.String())
 		// utils.SugarLogger.Infof("Received ... %d bytes from %s", buffer[64:n], remoteAddr.String())
 
-		if n == 70 {
-			// Splits canID bytes into hex digits/4 bits
-			canID := fmt.Sprintf("%x%x%x%x%x%x%x%x",
-				(buffer[0]&0xF0)>>4, buffer[0]&0x0F, // maybe remove the unused 0th hex digit
-				(buffer[1]&0xF0)>>4, buffer[1]&0x0F,
-				(buffer[2]&0xF0)>>4, buffer[2]&0x0F,
-				(buffer[3]&0xF0)>>4, buffer[3]&0x0F,
-			)
-
-			grID := (buffer[0] & 0x0F) | ((buffer[1] & 0xF0) >> 4) // 0th hex digit skipped
-			msgID := fmt.Sprintf("0x%x%x%x", buffer[1]&0x0F, (buffer[2]&0xF0)>>4, buffer[2]&0x0F)
-			targetID := ((buffer[3] & 0xF0) >> 4) | (buffer[3] & 0x0F)
-			// bus := buffer[4] // unused
-			// length := buffer[5] // unused
-			payload := buffer[6:n]
-
-			go PublishData(canID, grID, msgID, targetID, payload)
-		} else {
-			utils.SugarLogger.Infof("[CAN] Invalid packet size: expected 70 bytes, got %d", n)
+		if n < 70 {
+			utils.SugarLogger.Infof("[CAN] Invalid packet size: expected at least 70 bytes, got %d", n)
+			continue
 		}
 
+		// Splits canID bytes into hex digits/4 bits
+		canID := binary.LittleEndian.Uint32(buffer[0:4])
+		nodeID := uint8((canID >> 24) & 0xFF)  
+		msgID := uint16((canID >> 8) & 0xFFFF)
+		targetID := uint8(canID & 0xFF)   
+
+		utils.SugarLogger.Infof("[CAN] Msg ID: %d (0x%03x)", msgID, msgID)
+		utils.SugarLogger.Infof("[CAN] Node ID: %d (0x%02x)", nodeID, nodeID)
+		utils.SugarLogger.Infof("[CAN] Target ID: %d (0x%02x)", targetID, targetID)
+
+
+			
+		bus := buffer[4] // unused
+		length := buffer[5]
+		payload := buffer[6:length+6]
+
+		utils.SugarLogger.Infof("[CAN] Bus: %d", bus)
+		utils.SugarLogger.Infof("[CAN] Length: %d", length)
+		payloadStr := make([]string, len(payload))
+		for i, b := range payload {
+			payloadStr[i] = fmt.Sprintf("0x%02x", b)
+		}
+		utils.SugarLogger.Infof("[CAN] Payload: %v", payloadStr)
+
+		go PublishData(canID, nodeID, msgID, targetID, payload)
 	}
 }
