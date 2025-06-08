@@ -41,8 +41,8 @@ func InitializePings() {
 func SubscribePong() {
 	topic := fmt.Sprintf("gr25/%s/tcm/pong", config.VehicleID)
 	mqtt.Subscribe(topic, func(client mq.Client, msg mq.Message) {
-		ping := binary.LittleEndian.Uint64(msg.Payload()[:8])
-		pong := binary.LittleEndian.Uint64(msg.Payload()[8:])
+		ping := binary.BigEndian.Uint64(msg.Payload()[:8])
+		pong := binary.BigEndian.Uint64(msg.Payload()[8:])
 		received := time.Now().UnixMilli()
 		uploadLatency := time.Now().UnixMilli() - int64(ping)
 		rtt := received - int64(ping)
@@ -57,7 +57,7 @@ func PublishPing() {
 	millis := time.Now().UnixMilli()
 	go CreatePing(int(millis))
 	millisBytes := make([]byte, 8)
-	binary.LittleEndian.PutUint64(millisBytes, uint64(millis))
+	binary.BigEndian.PutUint64(millisBytes, uint64(millis))
 	uploadKey := []byte{0x01, 0x01}
 	payload := append(millisBytes, uploadKey...)
 	token := mqtt.Client.Publish(topic, 0, false, payload)

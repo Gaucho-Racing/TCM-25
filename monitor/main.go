@@ -1,7 +1,6 @@
 package main
 
 import (
-	"monitor/api"
 	"monitor/config"
 	"monitor/database"
 	"monitor/mqtt"
@@ -17,11 +16,8 @@ func main() {
 	database.InitializeDB()
 	mqtt.InitializeMQTT()
 	service.InitializePings()
+	service.InitializeResourceQuery()
 
-	router := api.SetupRouter()
-	api.InitializeRoutes(router)
-	err := router.Run(":" + config.Port)
-	if err != nil {
-		utils.SugarLogger.Fatalln(err)
+	for {
 	}
 }
