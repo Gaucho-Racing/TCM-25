@@ -70,7 +70,7 @@ func PublishData(canID uint32, nodeID uint8, messageID uint16, targetID uint8, d
 	}
 
 	topic := fmt.Sprintf("gr25/%s/%s/0x%03x", config.VehicleID, source, messageID)
-	timestamp := uint64(time.Now().UnixMilli())
+	timestamp := uint64(time.Now().UnixMicro())
 
 	go func() {
 		err := database.DB.Exec(`
