@@ -4,9 +4,8 @@ import (
 	"os"
 )
 
-var Version = "1.3.0"
+var Version = "1.4.0"
 var Env = os.Getenv("ENV")
-var Port = os.Getenv("PORT")
 
 var VehicleID = os.Getenv("VEHICLE_ID")
 var VehicleUploadKeyString = os.Getenv("VEHICLE_UPLOAD_KEY")
