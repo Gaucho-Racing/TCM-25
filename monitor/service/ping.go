@@ -43,23 +43,23 @@ func SubscribePong() {
 	mqtt.Subscribe(topic, func(client mq.Client, msg mq.Message) {
 		ping := binary.BigEndian.Uint64(msg.Payload()[:8])
 		pong := binary.BigEndian.Uint64(msg.Payload()[8:])
-		received := time.Now().UnixMilli()
-		uploadLatency := time.Now().UnixMilli() - int64(ping)
+		received := time.Now().UnixMicro()
+		uploadLatency := time.Now().UnixMicro() - int64(ping)
 		rtt := received - int64(ping)
 
 		go UpdatePong(int(ping), int(pong), int(uploadLatency))
-		utils.SugarLogger.Infof("[MQ] Received pong in %d ms", rtt)
+		utils.SugarLogger.Infof("[MQ] Received pong in %d μs", rtt)
 	})
 }
 
 func PublishPing() {
 	topic := fmt.Sprintf("gr25/%s/tcm/ping", config.VehicleID)
-	millis := time.Now().UnixMilli()
-	go CreatePing(int(millis))
-	millisBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(millisBytes, uint64(millis))
+	micros := time.Now().UnixMicro()
+	go CreatePing(int(micros))
+	microsBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(microsBytes, uint64(micros))
 	uploadKey := []byte{0x01, 0x01}
-	payload := append(millisBytes, uploadKey...)
+	payload := append(microsBytes, uploadKey...)
 	token := mqtt.Client.Publish(topic, 0, false, payload)
 	timeout := token.WaitTimeout(time.Second * 10)
 	if !timeout {
