@@ -80,7 +80,9 @@ func PublishResources() {
 	millis := time.Now().UnixMilli()
 	millisBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(millisBytes, uint64(millis))
-	uploadKey := []byte{0x01, 0x01}
+
+	uploadKey := make([]byte, 2)
+	binary.BigEndian.PutUint16(uploadKey, config.VehicleUploadKey)
 
 	data := make([]byte, 7)
 	data[0] = byte(clamp(CPU_util, 0, 255))

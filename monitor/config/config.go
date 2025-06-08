@@ -9,7 +9,8 @@ var Env = os.Getenv("ENV")
 var Port = os.Getenv("PORT")
 
 var VehicleID = os.Getenv("VEHICLE_ID")
-var UploadKey = []byte{0x01, 0x01}
+var VehicleUploadKeyString = os.Getenv("VEHICLE_UPLOAD_KEY")
+var VehicleUploadKey uint16
 
 var DatabaseHost = os.Getenv("DATABASE_HOST")
 var DatabasePort = os.Getenv("DATABASE_PORT")
