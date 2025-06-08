@@ -143,8 +143,8 @@ func ListenCAN(port string) {
 		// Splits canID bytes into hex digits/4 bits
 		canID := binary.LittleEndian.Uint32(buffer[0:4])
 		utils.SugarLogger.Infof("[CAN] CAN ID: %d (0x%08x)", canID, canID)
-		nodeID := uint8((canID >> 24) & 0xFF)
-		msgID := uint16((canID >> 8) & 0xFFFF)
+		nodeID := uint8((canID >> 20) & 0xFF)
+		msgID := uint16((canID >> 8) & 0xFFF)
 		targetID := uint8(canID & 0xFF)
 
 		utils.SugarLogger.Infof("[CAN] Msg ID: %d (0x%03x)", msgID, msgID)
