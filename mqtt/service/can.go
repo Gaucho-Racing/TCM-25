@@ -74,9 +74,9 @@ func PublishData(canID uint32, nodeID uint8, messageID uint16, targetID uint8, d
 
 	go func() {
 		err := database.DB.Exec(`
-			INSERT INTO gr25_message (timestamp, topic, data, synced, source_node, target_node)
-			VALUES (?, ?, ?, ?, ?, ?)`,
-			timestamp, topic, data, 0, source, target).Error
+			INSERT INTO gr25_message (timestamp, vehicle_id, topic, data, synced, source_node, target_node)
+			VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			timestamp, config.VehicleID, topic, data, 0, source, target).Error
 		if err != nil {
 			utils.SugarLogger.Errorf("[DB] Failed to insert data into gr25_message: %v", err)
 		}
@@ -134,19 +134,17 @@ func ListenCAN(port string) {
 
 		// Splits canID bytes into hex digits/4 bits
 		canID := binary.LittleEndian.Uint32(buffer[0:4])
-		nodeID := uint8((canID >> 24) & 0xFF)  
+		nodeID := uint8((canID >> 24) & 0xFF)
 		msgID := uint16((canID >> 8) & 0xFFFF)
-		targetID := uint8(canID & 0xFF)   
+		targetID := uint8(canID & 0xFF)
 
 		utils.SugarLogger.Infof("[CAN] Msg ID: %d (0x%03x)", msgID, msgID)
 		utils.SugarLogger.Infof("[CAN] Node ID: %d (0x%02x)", nodeID, nodeID)
 		utils.SugarLogger.Infof("[CAN] Target ID: %d (0x%02x)", targetID, targetID)
 
-
-			
 		bus := buffer[4] // unused
 		length := buffer[5]
-		payload := buffer[6:length+6]
+		payload := buffer[6 : length+6]
 
 		utils.SugarLogger.Infof("[CAN] Bus: %d", bus)
 		utils.SugarLogger.Infof("[CAN] Length: %d", length)
