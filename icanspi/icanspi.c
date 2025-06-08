@@ -4,13 +4,18 @@
 #include <unistd.h>
 #include <string.h>
 #include <jetgpio.h>
-#include <jetgpio.h>
 #include <signal.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <time.h>
+#include "circularBuffer.h"
 
 static volatile int interrupt = 1;
 long unsigned int timestamp;
 volatile int temp = 0;
 int SPI_init;
+CircularBuffer *cb = NULL;
 
 struct CAN{
     union{
@@ -94,27 +99,27 @@ int setCB(int pin, int edge, int delay, long unsigned int *timestamp, void *call
 void calling()
 {
     struct CAN frame = {0,};
-    char tx[8] = {0,};
-    char rx[8] = {0,};
-    spiXfer(SPI_init, tx, rx, 8);
+    char tx[6] = {0,};
+    char rx[6] = {0,};
+    spiXfer(SPI_init, tx, rx, 6);
     //cases the chat into uint 8 
     //this is used to get the length of the message
     //temp var for tx
-    for(int i = 0; i < 8; i++){
-        printf("%02x ", rx[i]);
-    }
-    printf("\n");
-    char txTemp[64] = {0x69,};
-    uint8_t length = (uint8_t)(rx[5]);
-    printf("%d\n", length);
-    spiXfer(SPI_init, txTemp, (char *)frame.combined.split.data, length);
+    uint32_t temp  = 0;
+    temp |= (uint32_t)(rx[1]);
+    temp |= ((uint32_t)(rx[0]) << 8);
+    temp |= (uint32_t)(rx[3] << 16);
+    temp |= (uint32_t)(rx[2] << 24);
 
-    temp++;
-    printf("%d\n", temp);
-    for(int i = 0; i < length; i++){
-        printf("%x ", frame.combined.split.data[i]);
-    }
-        printf("\n");
+    frame.combined.split.ID =  temp;
+    frame.combined.split.bus = rx[5];
+    frame.combined.split.length = rx[4]; 
+    char txTemp[64] = {0x69,};
+    uint8_t length = (uint8_t)(rx[4]);
+    // circularBufferPush(cb, frame.combined.buffer, sizeof(frame.combined.buffer));
+    
+    spiXfer(SPI_init, txTemp, (char *)frame.combined.split.data, length);
+    circularBufferPush(cb, frame.combined.buffer, sizeof(frame.combined.buffer));
     //printf("edge detected with EPOCH timestamp: %lu\n", timestamp);
     // terminating while loop
     //interrupt = 0;
@@ -124,8 +129,10 @@ int main(int argc, char *argv[])
 {
     int Init;
     int status;
+    cb = circular_buffer_init(64, 72);
     signal(SIGINT, inthandler);
     Init = gpioInitialise();
+    uint32_t counter = 0;
     if (Init < 0)
     {
         printf("Jetgpio initialisation failed. Error code:  %d\n", Init);
@@ -135,20 +142,63 @@ int main(int argc, char *argv[])
     {
         printf("Jetgpio initialisation OK. Return code:  %d\n", Init);
     }
-
     SPI_init = startSPI(1, 500000, 0, 0);
     status = enableGPIO(29, JET_INPUT);
+
+    /*
+    BK stuff
+    */
+
+    int sockfd;
+    struct sockaddr_in servaddr;
+
+    // Create UDP socket
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0) {
+        perror("Socket creation failed");
+        exit(1);
+    }
+     
+    // Set server address
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(atoi("8000"));
+    servaddr.sin_addr.s_addr = inet_addr("0.0.0.0");
+
+    /*
+    END BK stuff
+    */
+
+    //enable interupt after everything is good.
     status = setCB(29, FALLING_EDGE, 1000, &timestamp, &calling);
     printf("%d\n", status);
     while(interrupt){
-        sleep(1);
+        struct CAN *frame = circularBufferPop(cb);
+        if(frame != NULL){
+            counter = 0;
+            printf("LENGTH: %d\n", frame->combined.split.length);
+            printf("ID: %x\n", frame->combined.split.ID);
+            printf("BUS: %x\n", frame->combined.split.bus);
+            printf("LOAD: %d\n", cb->size);
+            printf("|=====|\n");
+            if (sendto(sockfd, frame, sizeof(struct CAN), 0, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
+                perror("Send failed, message lost");
+                continue;
+            }
+        } else if(counter >= 2000){
+            printf("STATE: RESET\n");
+            if (gpioRead(29) == 0){
+                calling();
+                printf("reset2\n");
+            }
+            counter = 0;
+        } else {
+            usleep(500);
+            counter ++;
+        }
     }
-
     spiClose(SPI_init);
     gpioTerminate();
     exit(0);
-
-
-   
 }
 
