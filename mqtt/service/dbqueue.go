@@ -22,14 +22,14 @@ var dbQueue *DBQueue
 func InitDBQueue() {
 	dbQueue = &DBQueue{
 		messages:  make(chan model.Gr25Message, 10000), // Buffer for 10k messages
-		batchSize: 100,                                 // Batch size of 100 messages
-		flushTime: 250 * time.Millisecond,              // Flush every 250ms
+		batchSize: 1000,                                // Batch size of 1000 messages
+		flushTime: 1000 * time.Millisecond,             // Flush every 1000ms
 	}
 
 	dbQueue.wg.Add(1)
 	go dbQueue.worker()
 
-	utils.SugarLogger.Infof("[DB Queue] Initialized with batch size %d", dbQueue.batchSize)
+	utils.SugarLogger.Infof("[DB] Initialized queue with batch size %d", dbQueue.batchSize)
 }
 
 func QueueDBWrite(timestamp int, vehicleID, topic string, data []byte, sourceNode string, targetNode string) {
@@ -108,7 +108,7 @@ func (q *DBQueue) writeBatch(batch []model.Gr25Message) {
 	if result.Error != nil {
 		utils.SugarLogger.Errorf("[DB] Failed to batch insert %d messages: %v", len(batch), result.Error)
 	} else {
-		utils.SugarLogger.Debugf("[DB] Inserted %d messages in %v", len(batch), duration)
+		utils.SugarLogger.Infof("[DB] Inserted %d messages in %v", len(batch), duration)
 	}
 }
 

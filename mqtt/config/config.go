@@ -2,6 +2,8 @@ package config
 
 import (
 	"os"
+
+	cmap "github.com/orcaman/concurrent-map/v2"
 )
 
 var Version = "1.4.0"
@@ -25,4 +27,4 @@ var MQTTPassword = os.Getenv("MQTT_PASSWORD")
 
 var CANPort = os.Getenv("CAN_PORT")
 
-var LastSucessfulPublish = make(map[uint32]int64)
+var LastSucessfulPublish = cmap.ConcurrentMap[string, uint64]{}

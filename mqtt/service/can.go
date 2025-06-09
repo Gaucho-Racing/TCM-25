@@ -80,24 +80,42 @@ func PublishData(canID uint32, nodeID uint8, messageID uint16, targetID uint8, d
 	buf.Write(data)
 
 	go func() {
-		token := mqtt.Client.Publish(topic, 1, true, buf.Bytes())
-		if token.WaitTimeout(10 * time.Second) {
-			if token.Error() != nil {
-				utils.SugarLogger.Errorf("[MQTT] Failed to publish to %s: %v", topic, token.Error())
-			} else {
-				utils.SugarLogger.Infof("[MQTT] Published to %s", topic)
-				config.LastSucessfulPublish[canID] = int64(timestamp)
+		canIDString := fmt.Sprintf("%d", canID)
+		lastSent, ok := config.LastSucessfulPublish.Get(canIDString)
+		shouldPublish := false
+		if ok {
+			// 100000 us = 100ms
+			if timestamp-lastSent > 100000 {
+				shouldPublish = true
 			}
 		} else {
-			utils.SugarLogger.Errorf("[MQTT] Failed to publish to %s: %v", topic, token.Error())
+			shouldPublish = true
+		}
+		if shouldPublish {
+			token := mqtt.Client.Publish(topic, 1, true, buf.Bytes())
+			if token.WaitTimeout(10 * time.Second) {
+				if token.Error() != nil {
+					utils.SugarLogger.Errorf("[MQTT] Failed to publish to %s: %v", topic, token.Error())
+				} else {
+					utils.SugarLogger.Infof("[MQTT] Published to %s", topic)
+					config.LastSucessfulPublish.Set(canIDString, timestamp)
+				}
+			} else {
+				utils.SugarLogger.Errorf("[MQTT] Failed to publish to %s: %v", topic, token.Error())
+			}
 		}
 	}()
 }
 
 func ListenCAN(port string) {
+	shouldLog := false
+	if config.Env == "DEV" {
+		shouldLog = true
+	}
+
 	portInt, err := strconv.Atoi(port)
 	if err != nil {
-		utils.SugarLogger.Fatalf("[CAN]Failed to convert port to int: %v", err)
+		utils.SugarLogger.Fatalf("[CAN] Failed to convert port to int: %v", err)
 	}
 	addr := net.UDPAddr{
 		Port: portInt,
@@ -116,8 +134,9 @@ func ListenCAN(port string) {
 			utils.SugarLogger.Errorf("[CAN] Error reading from UDP: %v", err)
 			continue
 		}
-		utils.SugarLogger.Infof("[CAN] Received %d bytes from %s", n, remoteAddr.String())
-		// utils.SugarLogger.Infof("Received ... %d bytes from %s", buffer[64:n], remoteAddr.String())
+		if shouldLog {
+			utils.SugarLogger.Infof("[CAN] Received %d bytes from %s", n, remoteAddr.String())
+		}
 
 		if n < 70 {
 			utils.SugarLogger.Infof("[CAN] Invalid packet size: expected at least 70 bytes, got %d", n)
@@ -130,30 +149,40 @@ func ListenCAN(port string) {
 		for i, b := range canIDBytes {
 			canIDStr[i] = fmt.Sprintf("0x%02x", b)
 		}
-		utils.SugarLogger.Infof("[CAN] Raw CAN ID bytes: %v", canIDStr)
+		if shouldLog {
+			utils.SugarLogger.Infof("[CAN] Raw CAN ID bytes: %v", canIDStr)
+		}
 
 		// Splits canID bytes into hex digits/4 bits
 		canID := binary.LittleEndian.Uint32(buffer[0:4])
-		utils.SugarLogger.Infof("[CAN] CAN ID: %d (0x%08x)", canID, canID)
+		if shouldLog {
+			utils.SugarLogger.Infof("[CAN] CAN ID: %d (0x%08x)", canID, canID)
+		}
 		nodeID := uint8((canID >> 20) & 0xFF)
 		msgID := uint16((canID >> 8) & 0xFFF)
 		targetID := uint8(canID & 0xFF)
 
-		utils.SugarLogger.Infof("[CAN] Msg ID: %d (0x%03x)", msgID, msgID)
-		utils.SugarLogger.Infof("[CAN] Node ID: %d (0x%02x)", nodeID, nodeID)
-		utils.SugarLogger.Infof("[CAN] Target ID: %d (0x%02x)", targetID, targetID)
+		if shouldLog {
+			utils.SugarLogger.Infof("[CAN] Msg ID: %d (0x%03x)", msgID, msgID)
+			utils.SugarLogger.Infof("[CAN] Node ID: %d (0x%02x)", nodeID, nodeID)
+			utils.SugarLogger.Infof("[CAN] Target ID: %d (0x%02x)", targetID, targetID)
+		}
 
 		bus := buffer[4] // unused
 		length := buffer[5]
 		payload := buffer[6 : length+6]
 
-		utils.SugarLogger.Infof("[CAN] Bus: %d", bus)
-		utils.SugarLogger.Infof("[CAN] Length: %d", length)
+		if shouldLog {
+			utils.SugarLogger.Infof("[CAN] Bus: %d", bus)
+			utils.SugarLogger.Infof("[CAN] Length: %d", length)
+		}
 		payloadStr := make([]string, len(payload))
 		for i, b := range payload {
 			payloadStr[i] = fmt.Sprintf("0x%02x", b)
 		}
-		utils.SugarLogger.Infof("[CAN] Payload: %v", payloadStr)
+		if shouldLog {
+			utils.SugarLogger.Infof("[CAN] Payload: %v", payloadStr)
+		}
 
 		go PublishData(canID, nodeID, msgID, targetID, payload)
 	}

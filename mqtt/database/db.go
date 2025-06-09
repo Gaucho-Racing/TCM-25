@@ -7,6 +7,7 @@ import (
 	"mqtt/utils"
 	"time"
 
+	cmap "github.com/orcaman/concurrent-map/v2"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -45,4 +46,8 @@ func InitializeDB() error {
 	utils.SugarLogger.Infoln("[DB] AutoMigration complete")
 	DB = db
 	return nil
+}
+
+func InitializeMap() {
+	config.LastSucessfulPublish = cmap.New[uint64]()
 }

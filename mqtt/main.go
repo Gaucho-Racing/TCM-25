@@ -15,6 +15,7 @@ func main() {
 
 	utils.VerifyConfig()
 	database.InitializeDB()
+	database.InitializeMap()
 	service.InitDBQueue()
 	mqtt.InitializeMQTT()
 	service.ListenCAN(config.CANPort)
