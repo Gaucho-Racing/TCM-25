@@ -79,32 +79,31 @@ func PublishData(canID uint32, nodeID uint8, messageID uint16, targetID uint8, d
 	binary.Write(buf, binary.BigEndian, config.VehicleUploadKey)
 	buf.Write(data)
 
-	go func() {
-		canIDString := fmt.Sprintf("%d", canID)
-		lastSent, ok := config.LastSucessfulPublish.Get(canIDString)
-		shouldPublish := false
-		if ok {
-			// 100000 us = 100ms
-			if timestamp-lastSent > 100000 {
-				shouldPublish = true
-			}
-		} else {
+	// Check if we should publish to MQTT
+	canIDString := fmt.Sprintf("%d", canID)
+	lastSent, ok := config.LastSucessfulPublish.Get(canIDString)
+	shouldPublish := false
+	if ok {
+		// 100000 us = 100ms
+		if timestamp-lastSent > 100000 {
 			shouldPublish = true
 		}
-		if shouldPublish {
-			token := mqtt.Client.Publish(topic, 1, true, buf.Bytes())
-			if token.WaitTimeout(10 * time.Second) {
-				if token.Error() != nil {
-					utils.SugarLogger.Errorf("[MQTT] Failed to publish to %s: %v", topic, token.Error())
-				} else {
-					utils.SugarLogger.Infof("[MQTT] Published to %s", topic)
-					config.LastSucessfulPublish.Set(canIDString, timestamp)
-				}
-			} else {
+	} else {
+		shouldPublish = true
+	}
+	if shouldPublish {
+		token := mqtt.Client.Publish(topic, 1, true, buf.Bytes())
+		if token.WaitTimeout(10 * time.Second) {
+			if token.Error() != nil {
 				utils.SugarLogger.Errorf("[MQTT] Failed to publish to %s: %v", topic, token.Error())
+			} else {
+				utils.SugarLogger.Infof("[MQTT] Published to %s", topic)
+				config.LastSucessfulPublish.Set(canIDString, timestamp)
 			}
+		} else {
+			utils.SugarLogger.Errorf("[MQTT] Failed to publish to %s: %v", topic, token.Error())
 		}
-	}()
+	}
 }
 
 func ListenCAN(port string) {

@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Wait for 1 second before sending next message
-        usleep(100000);
+        usleep(100);
     }
 
     close(sockfd);

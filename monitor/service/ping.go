@@ -58,7 +58,8 @@ func PublishPing() {
 	go CreatePing(int(micros))
 	microsBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(microsBytes, uint64(micros))
-	uploadKey := []byte{0x01, 0x01}
+	uploadKey := make([]byte, 2)
+	binary.BigEndian.PutUint16(uploadKey, config.VehicleUploadKey)
 	payload := append(microsBytes, uploadKey...)
 	token := mqtt.Client.Publish(topic, 0, false, payload)
 	timeout := token.WaitTimeout(time.Second * 10)
