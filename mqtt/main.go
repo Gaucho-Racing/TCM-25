@@ -12,9 +12,10 @@ func main() {
 	config.PrintStartupBanner()
 	utils.InitializeLogger()
 	defer utils.Logger.Sync()
-	
+
 	utils.VerifyConfig()
 	database.InitializeDB()
+	service.InitDBQueue()
 	mqtt.InitializeMQTT()
 	service.ListenCAN(config.CANPort)
 }
