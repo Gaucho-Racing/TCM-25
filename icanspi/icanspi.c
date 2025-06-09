@@ -36,8 +36,6 @@ void inthandler(int signum)
   interrupt = 0;
 }
 
-
-
 int startSPI(int port, int speed, int mode, int lsb){
     int SPI_init;
     SPI_init = spiOpen(port, speed, mode, 0, 8, lsb, 1);
@@ -98,6 +96,7 @@ int setCB(int pin, int edge, int delay, long unsigned int *timestamp, void *call
 
 void calling()
 {
+    // uint32_t start = clock();
     struct CAN frame = {0,};
     char tx[6] = {0,};
     char rx[6] = {0,};
@@ -114,12 +113,18 @@ void calling()
     frame.combined.split.ID =  temp;
     frame.combined.split.bus = rx[5];
     frame.combined.split.length = rx[4]; 
+    // frame.combined.split.length = rx[4]; 
     char txTemp[64] = {0x69,};
     uint8_t length = (uint8_t)(rx[4]);
     // circularBufferPush(cb, frame.combined.buffer, sizeof(frame.combined.buffer));
+
+
+    // printf("LOAD: %d\n", cb->size);
     
-    spiXfer(SPI_init, txTemp, (char *)frame.combined.split.data, length);
+    spiXfer(SPI_init, txTemp, (char *)frame.combined.split.data, length + length%2);
     circularBufferPush(cb, frame.combined.buffer, sizeof(frame.combined.buffer));
+    // uint32_t end = clock();
+    // printf("TIME: %f\n", (double)(end - start)/CLOCKS_PER_SEC);
     //printf("edge detected with EPOCH timestamp: %lu\n", timestamp);
     // terminating while loop
     //interrupt = 0;
@@ -129,6 +134,7 @@ int main(int argc, char *argv[])
 {
     int Init;
     int status;
+    uint32_t message_count = 0;
     cb = circular_buffer_init(64, 72);
     signal(SIGINT, inthandler);
     Init = gpioInitialise();
@@ -142,7 +148,7 @@ int main(int argc, char *argv[])
     {
         printf("Jetgpio initialisation OK. Return code:  %d\n", Init);
     }
-    SPI_init = startSPI(1, 500000, 0, 0);
+    SPI_init = startSPI(1, 16000000, 0, 0);
     status = enableGPIO(29, JET_INPUT);
 
     /*
@@ -170,17 +176,18 @@ int main(int argc, char *argv[])
     */
 
     //enable interupt after everything is good.
-    status = setCB(29, FALLING_EDGE, 1000, &timestamp, &calling);
+    status = setCB(29, FALLING_EDGE, 10, &timestamp, &calling);
     printf("%d\n", status);
     while(interrupt){
         struct CAN *frame = circularBufferPop(cb);
         if(frame != NULL){
             counter = 0;
-            printf("LENGTH: %d\n", frame->combined.split.length);
-            printf("ID: %x\n", frame->combined.split.ID);
-            printf("BUS: %x\n", frame->combined.split.bus);
-            printf("LOAD: %d\n", cb->size);
-            printf("|=====|\n");
+            // printf("LENGTH: %d\n", frame->combined.split.length);
+            // printf("ID: %x\n", frame->combined.split.ID);
+            // printf("BUS: %x\n", frame->combined.split.bus);
+            // printf("%d\n", message_count);
+            // printf("|=====|\n");
+            // message_count++;
             if (sendto(sockfd, frame, sizeof(struct CAN), 0, (const struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
                 perror("Send failed, message lost");
                 continue;
@@ -193,7 +200,7 @@ int main(int argc, char *argv[])
             }
             counter = 0;
         } else {
-            usleep(500);
+            usleep(1);
             counter ++;
         }
     }
