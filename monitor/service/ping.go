@@ -48,7 +48,7 @@ func SubscribePong() {
 		rtt := received - int64(ping)
 
 		go UpdatePong(int(ping), int(pong), int(uploadLatency))
-		utils.SugarLogger.Infof("[MQ] Received pong in %d μs", rtt)
+		utils.SugarLogger.Infof("[MQ] Received pong in %d ms", rtt/1000)
 	})
 }
 
