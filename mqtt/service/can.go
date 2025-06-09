@@ -87,18 +87,23 @@ func PublishData(canID uint32, nodeID uint8, messageID uint16, targetID uint8, d
 		// Publish interval in milliseconds (convert to microseconds)
 		if timestamp-lastSent > uint64(config.PublishIntervalInt*1000) {
 			shouldPublish = true
+			utils.SugarLogger.Infof("[MQTT] CAN ID %s: publishing", canIDString)
+			utils.SugarLogger.Infof("[MQTT] Last sent: %d, Timestamp: %d", lastSent, timestamp)
 		}
 	} else {
+		utils.SugarLogger.Infof("[MQTT] CAN ID %s: first publish", canIDString)
 		shouldPublish = true
 	}
 	if shouldPublish {
+		// Update timestamp BEFORE publishing to prevent race condition
+		config.LastSucessfulPublish.Set(canIDString, timestamp)
+
 		token := mqtt.Client.Publish(topic, 1, true, buf.Bytes())
 		if token.WaitTimeout(10 * time.Second) {
 			if token.Error() != nil {
 				utils.SugarLogger.Errorf("[MQTT] Failed to publish to %s: %v", topic, token.Error())
 			} else {
 				utils.SugarLogger.Infof("[MQTT] Published to %s", topic)
-				config.LastSucessfulPublish.Set(canIDString, timestamp)
 			}
 		} else {
 			utils.SugarLogger.Errorf("[MQTT] Failed to publish to %s: %v", topic, token.Error())

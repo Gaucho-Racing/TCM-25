@@ -26,4 +26,5 @@ func VerifyConfig() {
 
 	SugarLogger.Infof("Vehicle ID: %s", config.VehicleID)
 	SugarLogger.Infof("Vehicle Upload Key: %d", config.VehicleUploadKey)
+	SugarLogger.Infof("Publish Interval: %dms", config.PublishIntervalInt)
 }
