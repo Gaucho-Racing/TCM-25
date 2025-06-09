@@ -17,4 +17,6 @@ func VerifyConfig() {
 		SugarLogger.Fatalln("VEHICLE_UPLOAD_KEY is not a valid unsigned 16-bit integer")
 	}
 	config.VehicleUploadKey = uint16(key)
+	SugarLogger.Infof("Vehicle ID: %s", config.VehicleID)
+	SugarLogger.Infof("Vehicle Upload Key: %d", config.VehicleUploadKey)
 }
