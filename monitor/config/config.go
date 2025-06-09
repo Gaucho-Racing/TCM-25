@@ -4,7 +4,7 @@ import (
 	"os"
 )
 
-var Version = "1.4.3"
+var Version = "1.4.4"
 var Env = os.Getenv("ENV")
 
 var VehicleID = os.Getenv("VEHICLE_ID")
