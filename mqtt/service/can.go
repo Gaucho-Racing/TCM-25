@@ -87,11 +87,8 @@ func PublishData(canID uint32, nodeID uint8, messageID uint16, targetID uint8, d
 		// Publish interval in milliseconds (convert to microseconds)
 		if timestamp-lastSent > uint64(config.PublishIntervalInt*1000) {
 			shouldPublish = true
-			utils.SugarLogger.Infof("[MQTT] CAN ID %s: publishing", canIDString)
-			utils.SugarLogger.Infof("[MQTT] Last sent: %d, Timestamp: %d", lastSent, timestamp)
 		}
 	} else {
-		utils.SugarLogger.Infof("[MQTT] CAN ID %s: first publish", canIDString)
 		shouldPublish = true
 	}
 	if shouldPublish {
