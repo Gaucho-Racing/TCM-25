@@ -19,9 +19,22 @@ RUN GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o /tcm_monitor
 ##
 FROM alpine:3.21
 
+# Install necessary packages for jetson-stats
+RUN apk add --no-cache \
+    python3 \
+    py3-pip \
+    sudo \
+    procps \
+    util-linux \
+    coreutils
+
+# Install jetson-stats
+RUN pip3 install -U jetson-stats
+
 WORKDIR /
 
 COPY --from=builder /tcm_monitor /tcm_monitor
+COPY --from=builder /scripts/jetson-stats.py /jetson-stats.py
 
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 ENV TZ=America/Los_Angeles
