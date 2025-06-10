@@ -21,9 +21,9 @@ var dbQueue *DBQueue
 
 func InitDBQueue() {
 	dbQueue = &DBQueue{
-		messages:  make(chan model.Gr25Message, 10000), // Buffer for 10k messages
-		batchSize: 1000,                                // Batch size of 1000 messages
-		flushTime: 1000 * time.Millisecond,             // Flush every 1000ms
+		messages:  make(chan model.Gr25Message, 1000000), // Buffer for 1M messages
+		batchSize: 10000,                                 // Batch size of 10k messages
+		flushTime: 1000 * time.Millisecond,               // Flush every 1000ms
 	}
 
 	dbQueue.wg.Add(1)
@@ -102,6 +102,7 @@ func (q *DBQueue) writeBatch(batch []model.Gr25Message) {
 	}
 
 	start := time.Now()
+	// technically this is just a single insert since we're supplying the whole batch and using the same batch size
 	result := database.DB.CreateInBatches(&batch, len(batch))
 	duration := time.Since(start)
 
